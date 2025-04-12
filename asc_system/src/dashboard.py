@@ -26,11 +26,19 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Mount static files
-app.mount("/static", StaticFiles(directory="static"), name="static")
+# Create necessary directories if they don't exist
+static_dir = Path("static")
+static_dir.mkdir(exist_ok=True)
+
+templates_dir = Path("templates")
+templates_dir.mkdir(exist_ok=True)
+
+# Mount static files only if directory exists
+if static_dir.exists():
+    app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
 # Initialize templates
-templates = Jinja2Templates(directory="templates")
+templates = Jinja2Templates(directory=str(templates_dir))
 
 # Add handle method for Vercel
 @app.middleware("http")
