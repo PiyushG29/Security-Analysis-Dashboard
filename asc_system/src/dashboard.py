@@ -6,7 +6,7 @@ import traceback
 from typing import Dict, Any, List
 import queue
 from collections import defaultdict
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI, Request, Response, UploadFile, File, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -15,7 +15,6 @@ from pathlib import Path
 # Add the asc_system directory to the Python path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from flask import Flask, request, render_template, jsonify, send_from_directory
 import pandas as pd
 try:
     from scapy.all import rdpcap
@@ -40,8 +39,6 @@ templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 # Configure upload folder
 UPLOAD_FOLDER = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'uploads'))
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 
 # Create queues for events and alerts
 event_queue = queue.Queue()
@@ -206,21 +203,18 @@ async def root(request: Request):
 async def get_status():
     return JSONResponse(content={"status": "ok"})
 
-@app.route('/upload', methods=['POST'])
-def upload_file():
+@app.post("/upload")
+async def upload_file(file: UploadFile = File(...)):
     try:
-        if 'file' not in request.files:
-            return jsonify({"error": "No file part"}), 400
-            
-        file = request.files['file']
-        if file.filename == '':
-            return jsonify({"error": "No selected file"}), 400
-            
         if not file.filename.lower().endswith(('.csv', '.pcap')):
-            return jsonify({"error": "Unsupported file type. Please upload a .csv or .pcap file."}), 400
+            raise HTTPException(status_code=400, detail="Unsupported file type. Please upload a .csv or .pcap file.")
 
-        file_path = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
-        file.save(file_path)
+        file_path = os.path.join(UPLOAD_FOLDER, file.filename)
+        
+        # Save the uploaded file
+        with open(file_path, "wb") as buffer:
+            content = await file.read()
+            buffer.write(content)
 
         try:
             # Parse the uploaded file
@@ -229,13 +223,13 @@ def upload_file():
             # Analyze the data
             results = analyze_packets(parsed_data)
 
-            return jsonify({
+            return JSONResponse(content={
                 "message": "File processed successfully",
                 "results": results
-            }), 200
+            })
 
         except Exception as e:
-            return jsonify({"error": str(e)}), 400
+            raise HTTPException(status_code=400, detail=str(e))
         finally:
             # Clean up the uploaded file
             try:
@@ -244,23 +238,9 @@ def upload_file():
                 pass
 
     except Exception as e:
-        return jsonify({"error": f"Server error: {str(e)}"}), 500
-
-@app.errorhandler(400)
-def bad_request_error(error):
-    return jsonify({"error": f"Bad request: {str(error)}"}), 400
-
-@app.errorhandler(500)
-def internal_server_error(error):
-    return jsonify({"error": f"Internal server error: {str(error)}"}), 500
-
-@app.errorhandler(413)
-def request_entity_too_large(error):
-    return jsonify({"error": "File too large. Maximum size is 16MB"}), 413
-
-# Add this at the end
-app.debug = False
+        raise HTTPException(status_code=500, detail=f"Server error: {str(e)}")
 
 # For Vercel deployment
 if __name__ == '__main__':
-    app.run()
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
