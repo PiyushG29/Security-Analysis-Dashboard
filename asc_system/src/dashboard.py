@@ -6,6 +6,11 @@ import traceback
 from typing import Dict, Any, List
 import queue
 from collections import defaultdict
+from fastapi import FastAPI, Request, Response
+from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+from pathlib import Path
 
 # Add the asc_system directory to the Python path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -23,7 +28,14 @@ from src.detectors.anomaly_detector import AnomalyDetector
 from src.analyzers.context_analyzer import ContextAnalyzer
 from src.detectors.network_traffic_detector import NetworkTrafficDetector
 
-app = Flask(__name__)
+app = FastAPI()
+
+# Mount static files
+static_path = Path(__file__).parent / "static"
+app.mount("/static", StaticFiles(directory=str(static_path)), name="static")
+
+# Setup templates
+templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 
 # Configure upload folder
 UPLOAD_FOLDER = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'uploads'))
@@ -186,13 +198,13 @@ def parse_file(file_path: str) -> List[Dict[str, Any]]:
     else:
         raise ValueError("Unsupported file type. Please upload a .csv or .pcap file.")
 
-@app.route('/')
-def index():
-    return render_template('dashboard.html')
+@app.get("/", response_class=HTMLResponse)
+async def root(request: Request):
+    return templates.TemplateResponse("dashboard.html", {"request": request})
 
-@app.route('/static/<path:path>')
-def send_static(path):
-    return send_from_directory('static', path)
+@app.get("/api/status")
+async def get_status():
+    return JSONResponse(content={"status": "ok"})
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
