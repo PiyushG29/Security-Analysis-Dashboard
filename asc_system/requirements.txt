@@ -1,0 +1,43 @@
+# Core dependencies
+numpy>=1.22.0
+pandas>=1.4.0
+scipy>=1.8.0
+scikit-learn>=1.0.2
+tensorflow>=2.8.0
+torch>=1.11.0
+pyshark>=0.4.5  # For packet capture and analysis
+scapy>=2.4.5    # For network packet manipulation
+Flask>=2.0.0    # For web dashboard
+
+# Data processing
+matplotlib>=3.5.1
+seaborn>=0.11.2
+plotly>=5.6.0
+
+# Network and API
+fastapi>=0.75.0
+uvicorn>=0.17.5
+requests>=2.27.1
+aiohttp>=3.8.1
+
+# Security tools
+pycryptodome>=3.14.1
+cryptography>=36.0.0
+yara-python>=4.1.0  # For malware pattern matching
+# suricata-python>=0.1  # For IDS rule integration
+
+# System integration
+elasticsearch>=8.0.0  # For SIEM integration
+# kibana>=7.17.0
+prometheus-client>=0.13.1  # For metrics
+psutil>=5.9.0  # For system monitoring
+
+# Utilities
+python-dotenv>=0.19.2
+loguru>=0.6.0
+tqdm>=4.63.0
+PyYAML>=6.0
+
+# Testing
+pytest>=7.1.1
+pytest-cov>=3.0.0

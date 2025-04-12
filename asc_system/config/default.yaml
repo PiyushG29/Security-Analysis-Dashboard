@@ -1,0 +1,232 @@
+# Advanced Security Control (ASC) System - Default Configuration
+
+# Network traffic configuration
+network:
+  interface: default  # Uses default network interface
+  capture_method: pyshark  # Options: pyshark, scapy
+  bpf_filter: ""  # Berkeley Packet Filter expression
+  snapshot_length: 65535
+  promiscuous: true
+  stats_interval: 60  # Update statistics every 60 seconds
+
+# Detection module configuration
+detection:
+  alert_threshold: 70  # Score threshold for generating alerts (0-100)
+  enabled_detectors:
+    - anomaly
+    - signature
+    - behavioral
+    - ddos
+    - port_scan
+    - data_exfil
+    - api_abuse
+  
+  # Anomaly detector settings
+  anomaly:
+    detection_interval: 1.0  # Seconds between detection runs
+    use_ml: true  # Use machine learning models
+    auto_train: true  # Automatically train models with new data
+    training_interval: 3600  # Train models every hour (in seconds)
+    min_training_samples: 1000  # Minimum samples before training
+    model_path: null  # Load pre-trained models from path
+    model_save_path: "models/anomaly/model.pkl"  # Save models to path
+    anomaly_thresholds:
+      low: 2.0   # Z-score threshold for low severity alerts
+      medium: 3.0  # Z-score threshold for medium severity alerts
+      high: 4.0  # Z-score threshold for high severity alerts
+    features:
+      time_windows: [60, 300, 3600]  # Analysis windows in seconds
+      traffic_features: true
+      connection_features: true
+      protocol_features: true
+      payload_features: false  # Resource intensive
+      normalize_features: true
+  
+  # DDoS detector settings
+  ddos:
+    detection_interval: 1.0
+    packet_processor_enabled: true
+    auto_mitigate: false  # Automatic mitigation (caution: can block legitimate traffic)
+    mitigation_mode: monitor  # Options: monitor, block, rate_limit
+    thresholds:
+      pps: 10000  # Packets per second
+      bps: 100000000  # Bits per second (100 Mbps)
+      syn_rate: 1000  # SYN packets per second
+      conn_per_ip: 50  # Connections per IP
+      new_conn_rate: 500  # New connections per second
+    time_windows:
+      short: 10   # 10 seconds
+      medium: 60  # 1 minute
+      long: 300   # 5 minutes
+    entropy_window_size: 1000  # Window size for entropy calculation
+  
+  # Port scan detector settings
+  port_scan:
+    detection_interval: 2.0
+    min_ports: 5  # Minimum ports to consider as scan
+    time_window: 60  # Time window for scan detection in seconds
+    exempted_ips: []  # IPs exempted from port scan detection
+  
+  # Data exfiltration detector settings
+  data_exfil:
+    detection_interval: 5.0
+    size_threshold: 5000000  # 5MB threshold for large data transfers
+    domain_whitelists: []  # Whitelisted domains for data transfers
+    monitor_dns: true
+    monitor_uploads: true
+    sensitive_content_patterns: []  # Regex patterns for sensitive data
+  
+  # Signature detector settings
+  signature:
+    detection_interval: 0.5
+    signature_path: "data/signatures/"
+    update_interval: 86400  # Update signatures daily
+    auto_update: true
+  
+  # API abuse detector settings
+  api_abuse:
+    detection_interval: 5.0
+    rate_limits:
+      default: 100  # Default rate limit per minute
+      login: 10  # Login attempts per minute
+      admin: 20  # Admin actions per minute
+    token_validation: true
+
+# Analyzer configuration
+analyzers:
+  threat_score:
+    weights:
+      severity: 0.4
+      confidence: 0.3
+      context: 0.2
+      history: 0.1
+    threshold: 70  # Threshold for high-priority alert (0-100)
+  
+  correlation:
+    time_window: 300  # Correlation window in seconds
+    max_events: 1000  # Maximum events to keep in memory
+  
+  context:
+    enrich_geoip: true
+    enrich_domain: true
+    enrich_asn: true
+    enable_threat_intelligence: true
+    ti_sources:
+      - alienvault
+      - emergingthreats
+
+# Response configuration
+response:
+  alert:
+    enabled: true
+    channels:
+      console: true
+      syslog: false
+      email: false
+      webhook: false
+    email:
+      server: null
+      port: 587
+      username: null
+      password: null
+      recipients: []
+    webhook:
+      url: null
+      format: json
+  
+  containment:
+    enabled: false  # Enable automatic containment actions
+    require_approval: true  # Require human approval for containment
+    actions:
+      block_ip: true
+      block_domain: true
+      isolate_host: true
+    severity_threshold: 4  # Minimum severity for containment (1-5)
+  
+  forensic:
+    enabled: true
+    packet_capture: true
+    collect_logs: true
+    max_pcap_size: 104857600  # 100MB
+    storage_path: "data/forensics/"
+  
+  reporting:
+    enabled: true
+    formats:
+      - json
+      - pdf
+    schedule: daily  # Options: hourly, daily, weekly
+    storage_path: "data/reports/"
+
+# Machine learning configuration
+ml:
+  enabled: true
+  frameworks:
+    - scikit-learn
+    - tensorflow
+  resources:
+    max_memory: 2048  # Max memory in MB
+    max_cpu: 50  # Max CPU percentage
+  model_storage:
+    path: "models/"
+    version_control: true
+  retraining:
+    schedule: weekly
+    min_samples: 10000
+
+# Integration configuration
+integrations:
+  siem:
+    enabled: false
+    type: elastic  # Options: elastic, splunk, qradar, arcsight
+    host: localhost
+    port: 9200
+    index: asc_events
+    credentials:
+      username: null
+      password: null
+  
+  ticketing:
+    enabled: false
+    type: jira  # Options: jira, servicenow, zendesk
+    url: null
+    credentials:
+      username: null
+      api_key: null
+  
+  threat_intel:
+    enabled: true
+    sources:
+      - alienvault
+      - virustotal
+    credentials:
+      virustotal_api_key: null
+
+# API server configuration
+api:
+  enabled: false
+  host: localhost
+  port: 8000
+  ssl: false
+  ssl_cert: null
+  ssl_key: null
+  auth:
+    enabled: true
+    method: jwt  # Options: jwt, basic, api_key
+    key: change_this_to_a_random_string
+
+# Logging configuration
+logging:
+  level: INFO
+  file: "data/logs/asc.log"
+  max_size: 10  # MB
+  backup_count: 5
+  log_format: "[%(asctime)s] [%(name)s] [%(levelname)s] %(message)s"
+
+# System configuration
+system:
+  threads: 4
+  queue_size: 10000
+  pid_file: "/var/run/asc.pid"
+  user: root  # User to run as (for Linux)
+  group: root  # Group to run as (for Linux)

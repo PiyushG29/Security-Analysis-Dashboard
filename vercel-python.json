@@ -1,0 +1,8 @@
+{
+    "runtime": "python3.9",
+    "framework": "flask",
+    "installCommand": "bash build.sh",
+    "buildCommand": "echo 'Building Python application...'",
+    "outputDirectory": ".",
+    "ignoreCommand": "echo 'Ignoring files...'"
+} 
