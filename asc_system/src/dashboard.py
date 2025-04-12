@@ -29,6 +29,12 @@ from src.detectors.network_traffic_detector import NetworkTrafficDetector
 
 app = FastAPI()
 
+# Add handle method for Vercel
+@app.middleware("http")
+async def handle(request: Request, call_next):
+    response = await call_next(request)
+    return response
+
 # Mount static files
 static_path = Path(__file__).parent / "static"
 app.mount("/static", StaticFiles(directory=str(static_path)), name="static")

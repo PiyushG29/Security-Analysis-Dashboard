@@ -8,4 +8,4 @@ from asc_system.src.dashboard import app
 
 # Vercel requires a handler function
 def handler(request, context):
-    return app(request) 
+    return app.handle(request) 
