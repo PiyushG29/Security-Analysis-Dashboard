@@ -29,16 +29,14 @@ app.add_middleware(
 # Get the directory where this file is located
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
-# Create necessary directories if they don't exist
+# Define paths
 static_dir = BASE_DIR / "static"
-static_dir.mkdir(exist_ok=True)
-
 templates_dir = BASE_DIR / "templates"
-templates_dir.mkdir(exist_ok=True)
 
-# Mount static files only if directory exists
-if static_dir.exists():
-    app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+# Only mount static files if we're not in Vercel environment
+if not os.environ.get("VERCEL"):
+    if static_dir.exists():
+        app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
 # Initialize templates
 templates = Jinja2Templates(directory=str(templates_dir))
@@ -56,11 +54,17 @@ async def home(request: Request):
 @app.post("/upload")
 async def upload_file(file: UploadFile = File(...), file_type: str = Form(...)):
     try:
-        # Create uploads directory if it doesn't exist
+        # In Vercel, we can't save files permanently
+        if os.environ.get("VERCEL"):
+            return JSONResponse(
+                status_code=501,
+                content={"error": "File uploads are not supported in Vercel environment"}
+            )
+        
+        # For local development
         upload_dir = BASE_DIR / "uploads"
         upload_dir.mkdir(exist_ok=True)
         
-        # Save the file
         file_path = upload_dir / file.filename
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
@@ -79,6 +83,12 @@ async def upload_file(file: UploadFile = File(...), file_type: str = Form(...)):
 @app.get("/download/{filename}")
 async def download_file(filename: str):
     try:
+        if os.environ.get("VERCEL"):
+            return JSONResponse(
+                status_code=501,
+                content={"error": "File downloads are not supported in Vercel environment"}
+            )
+        
         file_path = BASE_DIR / "uploads" / filename
         if not file_path.exists():
             return JSONResponse(
