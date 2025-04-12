@@ -26,11 +26,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Get the directory where this file is located
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
+
 # Create necessary directories if they don't exist
-static_dir = Path("static")
+static_dir = BASE_DIR / "static"
 static_dir.mkdir(exist_ok=True)
 
-templates_dir = Path("templates")
+templates_dir = BASE_DIR / "templates"
 templates_dir.mkdir(exist_ok=True)
 
 # Mount static files only if directory exists
@@ -54,7 +57,7 @@ async def home(request: Request):
 async def upload_file(file: UploadFile = File(...), file_type: str = Form(...)):
     try:
         # Create uploads directory if it doesn't exist
-        upload_dir = Path("uploads")
+        upload_dir = BASE_DIR / "uploads"
         upload_dir.mkdir(exist_ok=True)
         
         # Save the file
@@ -76,7 +79,7 @@ async def upload_file(file: UploadFile = File(...), file_type: str = Form(...)):
 @app.get("/download/{filename}")
 async def download_file(filename: str):
     try:
-        file_path = Path("uploads") / filename
+        file_path = BASE_DIR / "uploads" / filename
         if not file_path.exists():
             return JSONResponse(
                 status_code=404,
