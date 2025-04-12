@@ -11,15 +11,4 @@ sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 from asc_system.src.dashboard import app
 
 # Create handler for Vercel
-handler = Mangum(app)
-
-# Vercel serverless function handler
-async def handler(request: Request):
-    try:
-        response = await app(request)
-        return response
-    except Exception as e:
-        return JSONResponse(
-            status_code=500,
-            content={"error": str(e)}
-        ) 
+handler = Mangum(app, lifespan="off")  # Disable lifespan events for Vercel 
