@@ -789,21 +789,26 @@ class Handler(BaseHTTPRequestHandler):
                             successMessage.style.display = 'none';
                             analysisCard.classList.remove('show');
                             
-                            const response = await fetch('/upload', {
+                            const response = await fetch('/api/upload', {
                                 method: 'POST',
                                 body: formData
                             });
                             
+                            if (!response.ok) {
+                                throw new Error('Upload failed');
+                            }
+                            
                             const data = await response.json();
                             
-                            if (response.ok) {
+                            if (data.error) {
+                                showError(data.error);
+                            } else {
                                 showSuccess('File uploaded successfully!');
                                 displayAnalysis(data);
-                            } else {
-                                showError(data.error || 'Upload failed');
                             }
                         } catch (error) {
-                            showError('An error occurred during upload');
+                            console.error('Upload error:', error);
+                            showError(error.message || 'An error occurred during upload');
                         } finally {
                             loading.style.display = 'none';
                         }
@@ -833,8 +838,21 @@ class Handler(BaseHTTPRequestHandler):
                             // Store the analysis for chat context
                             window.lastAnalysis = JSON.stringify(data.analysis);
                             
+                            // Display basic file information first
+                            const basicInfo = document.createElement('div');
+                            basicInfo.className = 'analysis-item';
+                            basicInfo.innerHTML = `
+                                <div class="analysis-item-title">File Information</div>
+                                <div class="analysis-item-value">
+                                    <p>Size: ${formatBytes(data.analysis.file_size)}</p>
+                                    <p>Type: ${data.analysis.file_type || 'Unknown'}</p>
+                                    ${data.analysis.line_count ? `<p>Lines: ${data.analysis.line_count}</p>` : ''}
+                                </div>
+                            `;
+                            analysisContent.appendChild(basicInfo);
+                            
                             // Display protocol analysis if available
-                            if (data.analysis.protocol_analysis) {
+                            if (data.analysis.protocol_analysis && !data.analysis.protocol_analysis.error) {
                                 const protocolStats = data.analysis.protocol_analysis;
                                 const total = Object.values(protocolStats).reduce((a, b) => a + b, 0);
                                 
@@ -842,6 +860,7 @@ class Handler(BaseHTTPRequestHandler):
                                     <div class="protocol-analysis">
                                         <div class="protocol-header">
                                             <h2 class="protocol-title">Protocol Analysis</h2>
+                                            <div>Total Packets: ${total}</div>
                                         </div>
                                         <div class="protocol-stats">
                                             ${Object.entries(protocolStats).map(([protocol, count]) => `
@@ -860,60 +879,46 @@ class Handler(BaseHTTPRequestHandler):
                                 analysisContent.innerHTML += protocolHTML;
                             }
                             
-                            // Add IP analysis with improved styling
+                            // Add IP analysis
                             if (data.analysis.top_source_ips || data.analysis.top_destination_ips) {
-                                const ipHTML = `
-                                    <div class="analysis-item">
-                                        <div class="analysis-item-title">Top Source IPs</div>
-                                        <div class="ip-list">
-                                            ${Object.entries(data.analysis.top_source_ips).map(([ip, count]) => `
-                                                <div class="ip-item">
-                                                    <span>${ip}</span>
-                                                    <span class="ip-count">${count}</span>
+                                const ipAnalysis = document.createElement('div');
+                                ipAnalysis.className = 'analysis-item';
+                                ipAnalysis.innerHTML = `
+                                    <div class="analysis-item-title">Network Traffic Analysis</div>
+                                    <div class="ip-analysis">
+                                        ${Object.keys(data.analysis.top_source_ips).length > 0 ? `
+                                            <div class="ip-section">
+                                                <h3>Top Source IPs</h3>
+                                                <div class="ip-list">
+                                                    ${Object.entries(data.analysis.top_source_ips)
+                                                        .map(([ip, count]) => `
+                                                            <div class="ip-item">
+                                                                <span>${ip}</span>
+                                                                <span class="ip-count">${count}</span>
+                                                            </div>
+                                                        `).join('')}
                                                 </div>
-                                            `).join('')}
-                                        </div>
-                                    </div>
-                                    <div class="analysis-item">
-                                        <div class="analysis-item-title">Top Destination IPs</div>
-                                        <div class="ip-list">
-                                            ${Object.entries(data.analysis.top_destination_ips).map(([ip, count]) => `
-                                                <div class="ip-item">
-                                                    <span>${ip}</span>
-                                                    <span class="ip-count">${count}</span>
+                                            </div>
+                                        ` : ''}
+                                        
+                                        ${Object.keys(data.analysis.top_destination_ips).length > 0 ? `
+                                            <div class="ip-section">
+                                                <h3>Top Destination IPs</h3>
+                                                <div class="ip-list">
+                                                    ${Object.entries(data.analysis.top_destination_ips)
+                                                        .map(([ip, count]) => `
+                                                            <div class="ip-item">
+                                                                <span>${ip}</span>
+                                                                <span class="ip-count">${count}</span>
+                                                            </div>
+                                                        `).join('')}
                                                 </div>
-                                            `).join('')}
-                                        </div>
+                                            </div>
+                                        ` : ''}
                                     </div>
                                 `;
-                                analysisContent.innerHTML += ipHTML;
+                                analysisContent.appendChild(ipAnalysis);
                             }
-                            
-                            // Add other analysis items
-                            Object.entries(data.analysis).forEach(([key, value]) => {
-                                if (!['protocol_analysis', 'top_source_ips', 'top_destination_ips'].includes(key)) {
-                                    const item = document.createElement('div');
-                                    item.className = 'analysis-item';
-                                    item.innerHTML = `
-                                        <div class="analysis-item-title">${formatKey(key)}</div>
-                                        <div class="analysis-item-value">${formatValue(value)}</div>
-                                    `;
-                                    analysisContent.appendChild(item);
-                                }
-                            });
-                            
-                            // Add print button
-                            const printButton = document.createElement('button');
-                            printButton.className = 'print-button';
-                            printButton.innerHTML = `
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/>
-                                    <path d="M6 14h12v8H6z"/>
-                                </svg>
-                                Print
-                            `;
-                            printButton.onclick = () => window.print();
-                            document.body.appendChild(printButton);
                             
                             // Add AI analysis section
                             const aiSection = document.createElement('div');
@@ -936,20 +941,12 @@ class Handler(BaseHTTPRequestHandler):
                         analysisCard.classList.add('show');
                     }
                     
-                    function formatKey(key) {
-                        return key.split('_').map(word => 
-                            word.charAt(0).toUpperCase() + word.slice(1)
-                        ).join(' ');
-                    }
-                    
-                    function formatValue(value) {
-                        if (typeof value === 'boolean') {
-                            return value ? 'True' : 'False';
-                        }
-                        if (typeof value === 'object') {
-                            return JSON.stringify(value, null, 2);
-                        }
-                        return value;
+                    function formatBytes(bytes) {
+                        if (bytes === 0) return '0 Bytes';
+                        const k = 1024;
+                        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+                        const i = Math.floor(Math.log(bytes) / Math.log(k));
+                        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
                     }
                     
                     function createChatInterface() {
