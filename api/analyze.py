@@ -1,8 +1,9 @@
 import os
 import google.generativeai as genai
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel
 import logging
+import json
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -22,13 +23,24 @@ class AnalysisRequest(BaseModel):
     analysis: str
 
 @app.post("/api/analyze")
-async def analyze_threats(request: AnalysisRequest):
+async def analyze_threats(request: Request):
     try:
         if not GEMINI_API_KEY:
             raise HTTPException(
                 status_code=500,
                 detail="Gemini API key is not configured. Please check environment variables."
             )
+
+        # Parse request body
+        body = await request.json()
+        if not body or 'analysis' not in body:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid request format. Expected 'analysis' field in request body."
+            )
+
+        analysis_data = body['analysis']
+        logger.info(f"Received analysis data: {analysis_data[:100]}...")  # Log first 100 chars
 
         # Initialize Gemini model
         model = genai.GenerativeModel('gemini-pro')
@@ -37,7 +49,7 @@ async def analyze_threats(request: AnalysisRequest):
         prompt = f"""
         Analyze the following network traffic analysis for potential security threats:
         
-        {request.analysis}
+        {analysis_data}
         
         Please provide:
         1. Potential security threats identified
@@ -62,8 +74,14 @@ async def analyze_threats(request: AnalysisRequest):
         return {"analysis": response.text}
         
     except Exception as e:
-        logger.error(f"Error in analyze_threats: {str(e)}")
+        logger.error(f"Error in analyze_threats: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=500,
             detail=f"Error analyzing threats: {str(e)}"
-        ) 
+        )
+
+# Add handler for Vercel
+@app.middleware("http")
+async def handle(request: Request, call_next):
+    response = await call_next(request)
+    return response 
