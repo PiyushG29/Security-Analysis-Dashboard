@@ -559,14 +559,6 @@ class Handler(BaseHTTPRequestHandler):
                         height: 16px;
                     }
                     
-                    .ai-analysis {
-                        margin-top: 20px;
-                        padding: 20px;
-                        border-radius: 12px;
-                        background: var(--card-bg);
-                        box-shadow: var(--card-shadow);
-                    }
-                    
                     .chat-window {
                         display: none;
                         position: fixed;
@@ -576,12 +568,11 @@ class Handler(BaseHTTPRequestHandler):
                         width: 80%;
                         max-width: 800px;
                         height: 80vh;
-                        background: var(--card-bg);
+                        background: white;
                         border-radius: 12px;
                         box-shadow: 0 4px 20px rgba(0,0,0,0.2);
                         z-index: 1000;
                         padding: 20px;
-                        display: flex;
                         flex-direction: column;
                     }
                     
@@ -895,41 +886,24 @@ class Handler(BaseHTTPRequestHandler):
                             printButton.onclick = () => window.print();
                             document.body.appendChild(printButton);
                             
-                            // Add AI analysis section with chat button
+                            // Add AI analysis section
                             const aiSection = document.createElement('div');
                             aiSection.className = 'ai-analysis';
                             aiSection.innerHTML = `
                                 <div class="ai-header">
                                     <h2 class="ai-title">AI Threat Analysis</h2>
                                     <button class="chat-button" onclick="openChat()">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
+                                        </svg>
                                         Discuss Analysis
                                     </button>
                                 </div>
-                                <div class="ai-content">
+                                <div class="ai-content" id="aiContent">
                                     ${data.analysis}
                                 </div>
                             `;
                             analysisContent.appendChild(aiSection);
-                            
-                            // Add chat interface (hidden by default)
-                            const chatInterface = document.createElement('div');
-                            chatInterface.innerHTML = `
-                                <div class="chat-overlay" id="chatOverlay"></div>
-                                <div class="chat-window" id="chatWindow">
-                                    <div class="chat-header">
-                                        <div class="chat-title">Discuss Analysis with AI</div>
-                                        <button class="chat-close" onclick="closeChat()">&times;</button>
-                                    </div>
-                                    <div class="chat-messages" id="chatMessages"></div>
-                                    <div class="chat-input-container">
-                                        <input type="text" class="chat-input" id="chatInput" 
-                                               placeholder="Ask a question about the analysis..."
-                                               onkeypress="if(event.key === 'Enter') sendMessage()">
-                                        <button class="chat-send" onclick="sendMessage()">Send</button>
-                                    </div>
-                                </div>
-                            `;
-                            document.body.appendChild(chatInterface);
                         }
                         
                         // Show the analysis card
@@ -952,14 +926,46 @@ class Handler(BaseHTTPRequestHandler):
                         return value;
                     }
                     
+                    function createChatInterface() {
+                        // Remove existing chat interface if any
+                        const existingChat = document.getElementById('chatInterface');
+                        if (existingChat) {
+                            existingChat.remove();
+                        }
+                        
+                        const chatInterface = document.createElement('div');
+                        chatInterface.id = 'chatInterface';
+                        chatInterface.innerHTML = `
+                            <div class="chat-overlay" id="chatOverlay" onclick="closeChat()"></div>
+                            <div class="chat-window" id="chatWindow">
+                                <div class="chat-header">
+                                    <div class="chat-title">Discuss Analysis with AI</div>
+                                    <button class="chat-close" onclick="closeChat()">&times;</button>
+                                </div>
+                                <div class="chat-messages" id="chatMessages"></div>
+                                <div class="chat-input-container">
+                                    <input type="text" class="chat-input" id="chatInput" 
+                                           placeholder="Ask a question about the analysis..."
+                                           onkeypress="if(event.key === 'Enter') sendMessage()">
+                                    <button class="chat-send" onclick="sendMessage()">Send</button>
+                                </div>
+                            </div>
+                        `;
+                        document.body.appendChild(chatInterface);
+                    }
+                    
                     function openChat() {
+                        createChatInterface();
                         document.getElementById('chatOverlay').style.display = 'block';
                         document.getElementById('chatWindow').style.display = 'flex';
+                        document.getElementById('chatInput').focus();
                     }
                     
                     function closeChat() {
-                        document.getElementById('chatOverlay').style.display = 'none';
-                        document.getElementById('chatWindow').style.display = 'none';
+                        const chatOverlay = document.getElementById('chatOverlay');
+                        const chatWindow = document.getElementById('chatWindow');
+                        if (chatOverlay) chatOverlay.style.display = 'none';
+                        if (chatWindow) chatWindow.style.display = 'none';
                     }
                     
                     async function sendMessage() {
