@@ -7,10 +7,7 @@ import json
 import base64
 import re
 from datetime import datetime
-import dpkt
 import socket
-from collections import defaultdict, Counter
-import struct
 
 # Add the project root to the Python path
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
@@ -40,8 +37,6 @@ class Handler(BaseHTTPRequestHandler):
                         --text-color: #333;
                         --error-color: #f44336;
                         --success-color: #4CAF50;
-                        --warning-color: #ff9800;
-                        --info-color: #2196F3;
                     }
                     
                     * {
@@ -184,39 +179,12 @@ class Handler(BaseHTTPRequestHandler):
                         background-color: #f8f9fa;
                         padding: 15px;
                         border-radius: 6px;
-                        transition: all 0.3s ease;
-                    }
-                    
-                    .analysis-item:hover {
-                        transform: translateY(-2px);
-                        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
                     }
                     
                     .analysis-item-title {
                         font-weight: 500;
                         margin-bottom: 10px;
                         color: var(--primary-color);
-                    }
-                    
-                    .analysis-item-value {
-                        font-size: 0.9em;
-                        color: var(--text-color);
-                    }
-                    
-                    .analysis-item.warning {
-                        border-left: 4px solid var(--warning-color);
-                    }
-                    
-                    .analysis-item.danger {
-                        border-left: 4px solid var(--error-color);
-                    }
-                    
-                    .analysis-item.success {
-                        border-left: 4px solid var(--success-color);
-                    }
-                    
-                    .analysis-item.info {
-                        border-left: 4px solid var(--info-color);
                     }
                     
                     .loading {
@@ -257,50 +225,6 @@ class Handler(BaseHTTPRequestHandler):
                         margin-top: 20px;
                         display: none;
                     }
-                    
-                    .analysis-section {
-                        margin-top: 30px;
-                    }
-                    
-                    .analysis-section-title {
-                        font-size: 1.5em;
-                        font-weight: 600;
-                        margin-bottom: 20px;
-                        color: var(--text-color);
-                    }
-                    
-                    .analysis-grid {
-                        display: grid;
-                        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-                        gap: 20px;
-                    }
-                    
-                    .analysis-chart {
-                        background-color: white;
-                        padding: 20px;
-                        border-radius: 8px;
-                        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-                    }
-                    
-                    .chart-title {
-                        font-size: 1.1em;
-                        font-weight: 500;
-                        margin-bottom: 15px;
-                        color: var(--text-color);
-                    }
-                    
-                    .chart-content {
-                        height: 200px;
-                        display: flex;
-                        align-items: flex-end;
-                        justify-content: space-around;
-                    }
-                    
-                    .chart-bar {
-                        width: 30px;
-                        background-color: var(--primary-color);
-                        transition: height 0.3s ease;
-                    }
                 </style>
             </head>
             <body>
@@ -326,44 +250,8 @@ class Handler(BaseHTTPRequestHandler):
                             <h2 class="analysis-title">Analysis Results</h2>
                             <span class="analysis-timestamp" id="analysisTimestamp"></span>
                         </div>
-                        
-                        <div class="analysis-section">
-                            <h3 class="analysis-section-title">Basic Statistics</h3>
-                            <div class="analysis-content" id="basicStats">
-                                <!-- Basic statistics will be populated here -->
-                            </div>
-                        </div>
-                        
-                        <div class="analysis-section">
-                            <h3 class="analysis-section-title">Protocol Analysis</h3>
-                            <div class="analysis-content" id="protocolAnalysis">
-                                <!-- Protocol analysis will be populated here -->
-                            </div>
-                        </div>
-                        
-                        <div class="analysis-section">
-                            <h3 class="analysis-section-title">Security Analysis</h3>
-                            <div class="analysis-content" id="securityAnalysis">
-                                <!-- Security analysis will be populated here -->
-                            </div>
-                        </div>
-                        
-                        <div class="analysis-section">
-                            <h3 class="analysis-section-title">Traffic Patterns</h3>
-                            <div class="analysis-grid">
-                                <div class="analysis-chart">
-                                    <div class="chart-title">Top Source IPs</div>
-                                    <div class="chart-content" id="sourceIPsChart">
-                                        <!-- Chart will be populated here -->
-                                    </div>
-                                </div>
-                                <div class="analysis-chart">
-                                    <div class="chart-title">Top Destination IPs</div>
-                                    <div class="chart-content" id="destIPsChart">
-                                        <!-- Chart will be populated here -->
-                                    </div>
-                                </div>
-                            </div>
+                        <div class="analysis-content" id="analysisContent">
+                            <!-- Analysis results will be populated here -->
                         </div>
                     </div>
                 </div>
@@ -375,11 +263,7 @@ class Handler(BaseHTTPRequestHandler):
                     const errorMessage = document.getElementById('errorMessage');
                     const successMessage = document.getElementById('successMessage');
                     const analysisCard = document.getElementById('analysisCard');
-                    const basicStats = document.getElementById('basicStats');
-                    const protocolAnalysis = document.getElementById('protocolAnalysis');
-                    const securityAnalysis = document.getElementById('securityAnalysis');
-                    const sourceIPsChart = document.getElementById('sourceIPsChart');
-                    const destIPsChart = document.getElementById('destIPsChart');
+                    const analysisContent = document.getElementById('analysisContent');
                     const analysisTimestamp = document.getElementById('analysisTimestamp');
                     
                     // Drag and drop functionality
@@ -452,68 +336,23 @@ class Handler(BaseHTTPRequestHandler):
                         analysisTimestamp.textContent = new Date().toLocaleString();
                         
                         // Clear previous analysis
-                        basicStats.innerHTML = '';
-                        protocolAnalysis.innerHTML = '';
-                        securityAnalysis.innerHTML = '';
-                        sourceIPsChart.innerHTML = '';
-                        destIPsChart.innerHTML = '';
+                        analysisContent.innerHTML = '';
                         
-                        // Display basic statistics
-                        if (data.analysis.basic_stats) {
-                            Object.entries(data.analysis.basic_stats).forEach(([key, value]) => {
-                                const item = createAnalysisItem(key, value);
-                                basicStats.appendChild(item);
+                        // Add analysis items
+                        if (data.analysis) {
+                            Object.entries(data.analysis).forEach(([key, value]) => {
+                                const item = document.createElement('div');
+                                item.className = 'analysis-item';
+                                item.innerHTML = `
+                                    <div class="analysis-item-title">${formatKey(key)}</div>
+                                    <div class="analysis-item-value">${formatValue(value)}</div>
+                                `;
+                                analysisContent.appendChild(item);
                             });
-                        }
-                        
-                        // Display protocol analysis
-                        if (data.analysis.protocols) {
-                            Object.entries(data.analysis.protocols).forEach(([key, value]) => {
-                                const item = createAnalysisItem(key, value, 'info');
-                                protocolAnalysis.appendChild(item);
-                            });
-                        }
-                        
-                        // Display security analysis
-                        if (data.analysis.security) {
-                            Object.entries(data.analysis.security).forEach(([key, value]) => {
-                                const severity = value.severity || 'info';
-                                const item = createAnalysisItem(key, value.message, severity);
-                                securityAnalysis.appendChild(item);
-                            });
-                        }
-                        
-                        // Display charts
-                        if (data.analysis.traffic_patterns) {
-                            displayChart(sourceIPsChart, data.analysis.traffic_patterns.top_source_ips);
-                            displayChart(destIPsChart, data.analysis.traffic_patterns.top_destination_ips);
                         }
                         
                         // Show the analysis card
                         analysisCard.classList.add('show');
-                    }
-                    
-                    function createAnalysisItem(title, value, severity = 'info') {
-                        const item = document.createElement('div');
-                        item.className = `analysis-item ${severity}`;
-                        item.innerHTML = `
-                            <div class="analysis-item-title">${formatKey(title)}</div>
-                            <div class="analysis-item-value">${formatValue(value)}</div>
-                        `;
-                        return item;
-                    }
-                    
-                    function displayChart(container, data) {
-                        if (!data) return;
-                        
-                        const maxValue = Math.max(...Object.values(data));
-                        Object.entries(data).forEach(([label, value]) => {
-                            const bar = document.createElement('div');
-                            bar.className = 'chart-bar';
-                            bar.style.height = `${(value / maxValue) * 100}%`;
-                            bar.title = `${label}: ${value}`;
-                            container.appendChild(bar);
-                        });
                     }
                     
                     function formatKey(key) {
@@ -603,138 +442,93 @@ class Handler(BaseHTTPRequestHandler):
             # Convert bytes to string for analysis
             content_str = content.decode('utf-8', errors='ignore')
             
-            # Basic statistics
-            basic_stats = {
+            # Basic file analysis
+            analysis = {
                 "file_size": len(content),
                 "line_count": len(content_str.splitlines()),
                 "word_count": len(content_str.split()),
                 "character_count": len(content_str),
+                "contains_ip": bool(re.search(r'\b(?:\d{1,3}\.){3}\d{1,3}\b', content_str)),
+                "contains_url": bool(re.search(r'https?://\S+', content_str)),
+                "contains_email": bool(re.search(r'[\w\.-]+@[\w\.-]+\.\w+', content_str)),
                 "timestamp": datetime.now().isoformat()
             }
             
-            # Protocol analysis
-            protocols = self.analyze_protocols(content)
-            
-            # Security analysis
-            security = self.analyze_security(content)
-            
-            # Traffic patterns
-            traffic_patterns = self.analyze_traffic_patterns(content)
-            
-            return {
-                "basic_stats": basic_stats,
-                "protocols": protocols,
-                "security": security,
-                "traffic_patterns": traffic_patterns
-            }
-        except Exception as e:
-            return {"error": str(e)}
-    
-    def analyze_protocols(self, content):
-        """Analyze protocols in the pcap file"""
-        try:
-            pcap = dpkt.pcap.Reader(content)
-            protocol_counts = Counter()
-            port_counts = Counter()
-            
-            for timestamp, buf in pcap:
-                eth = dpkt.ethernet.Ethernet(buf)
-                if isinstance(eth.data, dpkt.ip.IP):
-                    ip = eth.data
-                    protocol_counts[ip.p] += 1
-                    
-                    if isinstance(ip.data, dpkt.tcp.TCP):
-                        port_counts[ip.data.sport] += 1
-                        port_counts[ip.data.dport] += 1
-                    elif isinstance(ip.data, dpkt.udp.UDP):
-                        port_counts[ip.data.sport] += 1
-                        port_counts[ip.data.dport] += 1
-            
-            return {
-                "total_packets": sum(protocol_counts.values()),
-                "protocol_distribution": dict(protocol_counts),
-                "top_ports": dict(port_counts.most_common(10))
-            }
-        except Exception as e:
-            return {"error": str(e)}
-    
-    def analyze_security(self, content):
-        """Analyze security aspects of the pcap file"""
-        try:
-            pcap = dpkt.pcap.Reader(content)
-            security_issues = {}
-            
-            # Initialize counters
-            syn_count = 0
-            syn_ack_count = 0
-            ip_sources = Counter()
-            ip_destinations = Counter()
-            packet_sizes = []
-            
-            for timestamp, buf in pcap:
-                eth = dpkt.ethernet.Ethernet(buf)
-                if isinstance(eth.data, dpkt.ip.IP):
-                    ip = eth.data
-                    ip_sources[ip.src] += 1
-                    ip_destinations[ip.dst] += 1
-                    packet_sizes.append(len(buf))
-                    
-                    if isinstance(ip.data, dpkt.tcp.TCP):
-                        tcp = ip.data
-                        if tcp.flags & dpkt.tcp.TH_SYN:
-                            syn_count += 1
-                        if tcp.flags & dpkt.tcp.TH_SYN and tcp.flags & dpkt.tcp.TH_ACK:
-                            syn_ack_count += 1
-            
-            # Check for potential SYN flood
-            if syn_count > 1000 and syn_count > syn_ack_count * 2:
-                security_issues["syn_flood"] = {
-                    "message": "Potential SYN flood attack detected",
-                    "severity": "danger",
-                    "syn_count": syn_count,
-                    "syn_ack_count": syn_ack_count
+            # Try to analyze as PCAP file
+            try:
+                from io import BytesIO
+                import dpkt
+                
+                # Create a BytesIO object from the content
+                pcap_file = BytesIO(content)
+                
+                # Create a PCAP reader
+                pcap = dpkt.pcap.Reader(pcap_file)
+                
+                # Initialize protocol counters
+                protocol_stats = {
+                    'tcp': 0,
+                    'udp': 0,
+                    'icmp': 0,
+                    'other': 0
                 }
+                
+                # Initialize IP counters
+                source_ips = {}
+                dest_ips = {}
+                
+                # Analyze each packet
+                for timestamp, buf in pcap:
+                    try:
+                        eth = dpkt.ethernet.Ethernet(buf)
+                        if isinstance(eth.data, dpkt.ip.IP):
+                            ip = eth.data
+                            
+                            # Count source and destination IPs
+                            src_ip = socket.inet_ntoa(ip.src)
+                            dst_ip = socket.inet_ntoa(ip.dst)
+                            
+                            source_ips[src_ip] = source_ips.get(src_ip, 0) + 1
+                            dest_ips[dst_ip] = dest_ips.get(dst_ip, 0) + 1
+                            
+                            # Count protocols
+                            if isinstance(ip.data, dpkt.tcp.TCP):
+                                protocol_stats['tcp'] += 1
+                            elif isinstance(ip.data, dpkt.udp.UDP):
+                                protocol_stats['udp'] += 1
+                            elif isinstance(ip.data, dpkt.icmp.ICMP):
+                                protocol_stats['icmp'] += 1
+                            else:
+                                protocol_stats['other'] += 1
+                    except:
+                        continue
+                
+                # Add PCAP-specific analysis
+                analysis.update({
+                    "protocol_analysis": protocol_stats,
+                    "top_source_ips": dict(sorted(source_ips.items(), key=lambda x: x[1], reverse=True)[:10]),
+                    "top_destination_ips": dict(sorted(dest_ips.items(), key=lambda x: x[1], reverse=True)[:10]),
+                    "total_packets": sum(protocol_stats.values()),
+                    "file_type": "PCAP"
+                })
+                
+            except Exception as e:
+                # If not a PCAP file, try other analysis
+                analysis.update({
+                    "protocol_analysis": {"error": "Not a PCAP file or invalid format"},
+                    "top_source_ips": {},
+                    "top_destination_ips": {},
+                    "file_type": "Unknown"
+                })
             
-            # Check for unusual packet sizes
-            avg_packet_size = sum(packet_sizes) / len(packet_sizes) if packet_sizes else 0
-            if avg_packet_size > 1500:  # MTU is typically 1500
-                security_issues["large_packets"] = {
-                    "message": f"Unusually large average packet size: {avg_packet_size:.2f} bytes",
-                    "severity": "warning"
-                }
+            return analysis
             
-            # Check for port scanning
-            if len(ip_sources) > 1000:
-                security_issues["port_scanning"] = {
-                    "message": "Potential port scanning activity detected",
-                    "severity": "danger",
-                    "unique_sources": len(ip_sources)
-                }
-            
-            return security_issues
         except Exception as e:
-            return {"error": str(e)}
-    
-    def analyze_traffic_patterns(self, content):
-        """Analyze traffic patterns in the pcap file"""
-        try:
-            pcap = dpkt.pcap.Reader(content)
-            ip_sources = Counter()
-            ip_destinations = Counter()
-            
-            for timestamp, buf in pcap:
-                eth = dpkt.ethernet.Ethernet(buf)
-                if isinstance(eth.data, dpkt.ip.IP):
-                    ip = eth.data
-                    ip_sources[socket.inet_ntoa(ip.src)] += 1
-                    ip_destinations[socket.inet_ntoa(ip.dst)] += 1
-            
             return {
-                "top_source_ips": dict(ip_sources.most_common(5)),
-                "top_destination_ips": dict(ip_destinations.most_common(5))
+                "error": str(e),
+                "file_size": len(content),
+                "timestamp": datetime.now().isoformat()
             }
-        except Exception as e:
-            return {"error": str(e)}
 
 # Vercel requires this specific handler
 handler = Handler 
