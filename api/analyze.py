@@ -1,6 +1,7 @@
 import os
 import google.generativeai as genai
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 import logging
 import json
@@ -17,7 +18,15 @@ if not GEMINI_API_KEY:
     logger.error("GEMINI_API_KEY environment variable is not set")
 else:
     logger.info("GEMINI_API_KEY is set")
-    genai.configure(api_key=GEMINI_API_KEY)
+    try:
+        genai.configure(api_key=GEMINI_API_KEY)
+        # Test the API key by making a simple request
+        model = genai.GenerativeModel('gemini-pro')
+        test_response = model.generate_content("Test")
+        logger.info("Gemini API key verified successfully")
+    except Exception as e:
+        logger.error(f"Failed to configure Gemini API: {str(e)}")
+        GEMINI_API_KEY = None
 
 class AnalysisRequest(BaseModel):
     analysis: str
@@ -26,17 +35,33 @@ class AnalysisRequest(BaseModel):
 async def analyze_threats(request: Request):
     try:
         if not GEMINI_API_KEY:
-            raise HTTPException(
+            return JSONResponse(
                 status_code=500,
-                detail="Gemini API key is not configured. Please check environment variables."
+                content={
+                    "error": True,
+                    "analysis": "AI analysis is currently unavailable. Please check the API configuration."
+                }
             )
 
         # Parse request body
-        body = await request.json()
-        if not body or 'analysis' not in body:
-            raise HTTPException(
+        try:
+            body = await request.json()
+        except json.JSONDecodeError:
+            return JSONResponse(
                 status_code=400,
-                detail="Invalid request format. Expected 'analysis' field in request body."
+                content={
+                    "error": True,
+                    "analysis": "Invalid JSON in request body"
+                }
+            )
+
+        if not body or 'analysis' not in body:
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "error": True,
+                    "analysis": "Invalid request format. Expected 'analysis' field in request body."
+                }
             )
 
         analysis_data = body['analysis']
@@ -51,37 +76,78 @@ async def analyze_threats(request: Request):
         
         {analysis_data}
         
-        Please provide:
-        1. Potential security threats identified
-        2. Risk level assessment
-        3. Recommended actions
-        4. Any suspicious patterns or anomalies
+        Please provide a structured analysis in the following format:
+
+        POTENTIAL THREATS:
+        - List key security threats identified
         
-        Format the response in a clear, structured manner.
+        RISK ASSESSMENT:
+        - Overall risk level
+        - Specific risks identified
+        
+        RECOMMENDED ACTIONS:
+        - Immediate steps to take
+        - Long-term security improvements
+        
+        SUSPICIOUS PATTERNS:
+        - Unusual traffic patterns
+        - Anomalies detected
         """
         
         logger.info("Sending request to Gemini API")
-        # Generate response
-        response = model.generate_content(prompt)
-        
-        if not response or not response.text:
-            raise HTTPException(
-                status_code=500,
-                detail="Empty response from Gemini API"
+        try:
+            response = model.generate_content(prompt)
+            
+            if not response or not response.text:
+                return JSONResponse(
+                    status_code=500,
+                    content={
+                        "error": True,
+                        "analysis": "No analysis generated. Please try again."
+                    }
+                )
+                
+            logger.info("Successfully received response from Gemini API")
+            return JSONResponse(
+                status_code=200,
+                content={
+                    "error": False,
+                    "analysis": response.text
+                }
             )
             
-        logger.info("Successfully received response from Gemini API")
-        return {"analysis": response.text}
-        
+        except Exception as api_error:
+            logger.error(f"Gemini API error: {str(api_error)}")
+            return JSONResponse(
+                status_code=500,
+                content={
+                    "error": True,
+                    "analysis": "Unable to complete the analysis. Please try again later."
+                }
+            )
+            
     except Exception as e:
         logger.error(f"Error in analyze_threats: {str(e)}", exc_info=True)
-        raise HTTPException(
+        return JSONResponse(
             status_code=500,
-            detail=f"Error analyzing threats: {str(e)}"
+            content={
+                "error": True,
+                "analysis": "An unexpected error occurred during analysis."
+            }
         )
 
 # Add handler for Vercel
 @app.middleware("http")
 async def handle(request: Request, call_next):
-    response = await call_next(request)
-    return response 
+    try:
+        response = await call_next(request)
+        return response
+    except Exception as e:
+        logger.error(f"Middleware error: {str(e)}", exc_info=True)
+        return JSONResponse(
+            status_code=500,
+            content={
+                "error": True,
+                "analysis": "Server error occurred while processing the request."
+            }
+        ) 
