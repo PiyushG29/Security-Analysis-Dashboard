@@ -153,7 +153,18 @@ async def chat_with_ai(request: Request):
                 }
             )
 
-        body = await request.json()
+        # Parse request body
+        try:
+            body = await request.json()
+        except json.JSONDecodeError:
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "error": True,
+                    "response": "Invalid JSON in request body"
+                }
+            )
+
         if not body or 'message' not in body or 'context' not in body:
             return JSONResponse(
                 status_code=400,
@@ -166,44 +177,70 @@ async def chat_with_ai(request: Request):
         user_message = body['message']
         analysis_context = body['context']
 
+        # Initialize Gemini model
         model = genai.GenerativeModel('gemini-pro')
         
-        prompt = f"""
-        Context: You are discussing a security analysis of network traffic. Here is the analysis context:
-        {analysis_context}
+        # Create a more detailed prompt for better responses
+        prompt = f"""You are a cybersecurity expert analyzing network traffic data. Here is the context of the analysis:
 
-        User Question: {user_message}
+Analysis Context:
+{analysis_context}
 
-        Please provide a helpful response addressing the user's question about the security analysis.
-        Focus on explaining technical details in a clear way and providing actionable recommendations when appropriate.
-        """
+User Question: {user_message}
 
-        response = model.generate_content(prompt)
+Please provide a detailed response that:
+1. Directly addresses the user's question
+2. References specific data from the analysis when relevant
+3. Explains technical concepts in a clear way
+4. Provides actionable recommendations if applicable
+5. Highlights any security implications
+
+Format your response in a clear, structured manner."""
+
+        logger.info(f"Sending chat request to Gemini API. User message: {user_message[:100]}...")
         
-        if not response or not response.text:
+        try:
+            # Generate response from Gemini
+            response = model.generate_content(prompt)
+            
+            if not response or not response.text:
+                return JSONResponse(
+                    status_code=500,
+                    content={
+                        "error": True,
+                        "response": "No response generated. Please try again."
+                    }
+                )
+
+            # Format and clean the response
+            ai_response = response.text.strip()
+            
+            logger.info("Successfully received response from Gemini API")
+            return JSONResponse(
+                status_code=200,
+                content={
+                    "error": False,
+                    "response": ai_response
+                }
+            )
+
+        except Exception as api_error:
+            logger.error(f"Gemini API error: {str(api_error)}")
             return JSONResponse(
                 status_code=500,
                 content={
                     "error": True,
-                    "response": "No response generated. Please try again."
+                    "response": "Unable to generate a response. Please try again."
                 }
             )
 
-        return JSONResponse(
-            status_code=200,
-            content={
-                "error": False,
-                "response": response.text
-            }
-        )
-
     except Exception as e:
-        logger.error(f"Error in chat: {str(e)}", exc_info=True)
+        logger.error(f"Error in chat endpoint: {str(e)}", exc_info=True)
         return JSONResponse(
             status_code=500,
             content={
                 "error": True,
-                "response": "An error occurred while processing your message."
+                "response": "An unexpected error occurred while processing your message."
             }
         )
 
