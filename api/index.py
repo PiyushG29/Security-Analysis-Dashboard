@@ -24,10 +24,8 @@ class Handler(BaseHTTPRequestHandler):
             
             html_content = """
             <!DOCTYPE html>
-            <html lang="en">
+            <html>
             <head>
-                <meta charset="UTF-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
                 <title>Security Analysis Dashboard</title>
                 <style>
                     @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
@@ -111,72 +109,113 @@ class Handler(BaseHTTPRequestHandler):
                     }
                     
                     .upload-section {
-                        margin: 20px auto;
-                        max-width: 600px;
-                        padding: 20px;
-                        background: white;
-                        border-radius: 12px;
-                        box-shadow: var(--card-shadow);
-                    }
-                    
-                    .file-input-container {
                         display: flex;
-                        gap: 10px;
-                        margin-bottom: 20px;
-                    }
-                    
-                    .file-input-wrapper {
-                        flex-grow: 1;
+                        flex-direction: column;
+                        gap: 30px;
+                        align-items: center;
+                        margin-bottom: 40px;
                         position: relative;
                     }
                     
-                    .file-input {
-                        position: absolute;
+                    .file-input-container {
                         width: 100%;
-                        height: 100%;
-                        opacity: 0;
-                        cursor: pointer;
+                        max-width: 500px;
+                        position: relative;
+                        transition: transform 0.3s ease;
                     }
                     
-                    .file-label {
-                        display: block;
-                        padding: 10px 15px;
-                        background: var(--secondary-bg);
-                        border: 2px dashed var(--border-color);
-                        border-radius: 8px;
+                    .file-input-container:hover {
+                        transform: translateY(-5px);
+                    }
+                    
+                    .file-input {
+                        width: 100%;
+                        padding: 30px;
+                        border: 3px dashed #ccc;
+                        border-radius: 15px;
                         text-align: center;
                         cursor: pointer;
                         transition: all 0.3s ease;
+                        background-color: rgba(250, 250, 250, 0.8);
+                        font-size: 1.1em;
+                        position: relative;
+                        overflow: hidden;
                     }
                     
-                    .file-label:hover {
+                    .file-input::before {
+                        content: '';
+                        position: absolute;
+                        top: 0;
+                        left: -100%;
+                        width: 100%;
+                        height: 100%;
+                        background: linear-gradient(
+                            90deg,
+                            transparent,
+                            rgba(255, 255, 255, 0.4),
+                            transparent
+                        );
+                        transition: 0.5s;
+                    }
+                    
+                    .file-input:hover::before {
+                        left: 100%;
+                    }
+                    
+                    .file-input:hover {
                         border-color: var(--primary-color);
-                        background: var(--hover-bg);
+                        background-color: rgba(240, 240, 240, 0.9);
+                        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
                     }
                     
-                    .upload-button {
-                        padding: 10px 20px;
+                    .file-input.dragover {
+                        border-color: var(--primary-color);
+                        background-color: rgba(232, 245, 233, 0.9);
+                        transform: scale(1.02);
+                    }
+                    
+                    .submit-btn {
                         background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
                         color: white;
+                        padding: 18px 35px;
                         border: none;
-                        border-radius: 8px;
+                        border-radius: 12px;
                         cursor: pointer;
-                        font-weight: 500;
+                        font-size: 1.2em;
+                        font-weight: 600;
                         transition: all 0.3s ease;
-                        display: flex;
-                        align-items: center;
-                        gap: 8px;
+                        box-shadow: var(--card-shadow);
+                        position: relative;
+                        overflow: hidden;
                     }
                     
-                    .upload-button:hover {
-                        transform: translateY(-2px);
+                    .submit-btn::before {
+                        content: '';
+                        position: absolute;
+                        top: 0;
+                        left: -100%;
+                        width: 100%;
+                        height: 100%;
+                        background: linear-gradient(
+                            90deg,
+                            transparent,
+                            rgba(255, 255, 255, 0.4),
+                            transparent
+                        );
+                        transition: 0.5s;
+                    }
+                    
+                    .submit-btn:hover::before {
+                        left: 100%;
+                    }
+                    
+                    .submit-btn:hover {
+                        transform: translateY(-3px);
                         box-shadow: var(--hover-shadow);
                     }
                     
-                    .upload-button:disabled {
-                        opacity: 0.7;
-                        cursor: not-allowed;
-                        transform: none;
+                    .submit-btn:active {
+                        transform: translateY(1px);
                     }
                     
                     .loading {
@@ -563,35 +602,66 @@ class Handler(BaseHTTPRequestHandler):
                     .chat-messages {
                         flex-grow: 1;
                         overflow-y: auto;
-                        padding: 15px 0;
+                        padding: 15px;
                         display: flex;
                         flex-direction: column;
-                        gap: 10px;
+                        gap: 8px;
+                        background: rgba(248, 249, 250, 0.8);
+                        border-radius: 8px;
+                        margin: 10px 0;
                     }
                     
                     .chat-message {
-                        padding: 10px 15px;
-                        border-radius: 10px;
+                        padding: 12px 16px;
+                        border-radius: 12px;
                         max-width: 80%;
+                        margin: 8px 0;
+                        line-height: 1.4;
                     }
                     
-                    .user-message {
-                        background: var(--primary-color);
-                        color: white;
-                        align-self: flex-end;
+                    .chat-message pre {
+                        white-space: pre-wrap;
+                        word-wrap: break-word;
+                        margin: 0;
+                        font-family: inherit;
                     }
                     
-                    .ai-message {
-                        background: var(--secondary-bg);
+                    .chat-message.loading {
+                        display: flex;
+                        align-items: center;
+                        gap: 10px;
+                        background: rgba(var(--primary-color-rgb), 0.1);
                         color: var(--text-color);
-                        align-self: flex-start;
+                    }
+                    
+                    .loading-spinner {
+                        width: 20px;
+                        height: 20px;
+                        border: 2px solid transparent;
+                        border-top-color: var(--primary-color);
+                        border-radius: 50%;
+                        animation: spin 1s linear infinite;
+                    }
+                    
+                    @keyframes spin {
+                        to {
+                            transform: rotate(360deg);
+                        }
+                    }
+                    
+                    .chat-message.error {
+                        background: rgba(255, 0, 0, 0.1);
+                        color: #ff3333;
+                        border: 1px solid rgba(255, 0, 0, 0.2);
                     }
                     
                     .chat-input-container {
                         display: flex;
                         gap: 10px;
-                        padding-top: 15px;
+                        padding: 15px;
+                        background: white;
                         border-top: 1px solid var(--border-color);
+                        border-radius: 0 0 12px 12px;
                     }
                     
                     .chat-input {
@@ -651,157 +721,95 @@ class Handler(BaseHTTPRequestHandler):
             </head>
             <body>
                 <div class="container">
-                    <header>
-                        <h1>Security Analysis Dashboard</h1>
-                    </header>
+                    <h1>Security Analysis Dashboard</h1>
+                    <div class="upload-section">
+                        <div class="file-input-container">
+                            <input type="file" name="file" class="file-input" id="fileInput" required>
+                        </div>
+                        <button type="button" class="submit-btn" id="uploadBtn">Upload & Analyze</button>
+                    </div>
                     
-                    <main>
-                        <section class="upload-section">
-                            <div class="file-input-container">
-                                <div class="file-input-wrapper">
-                                    <input type="file" id="fileInput" class="file-input" accept=".pcap,.pcapng">
-                                    <label for="fileInput" id="fileLabel" class="file-label">
-                                        Choose a PCAP file or drag it here
-                                    </label>
-                                </div>
-                                <button id="uploadButton" class="upload-button">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                                        <polyline points="17 8 12 3 7 8"/>
-                                        <line x1="12" y1="3" x2="12" y2="15"/>
-                                    </svg>
-                                    Upload & Analyze
-                                </button>
-                            </div>
-                        </section>
-                        
-                        <section id="analysisCard" class="analysis-card">
-                            <div class="analysis-header">
-                                <h2>Analysis Results</h2>
-                                <span id="analysisTimestamp"></span>
-                            </div>
-                            <div id="analysisContent" class="analysis-content">
-                                <!-- Analysis results will be inserted here -->
-                            </div>
-                        </section>
-                    </main>
+                    <div class="loading" id="loading">
+                        <div class="loading-spinner"></div>
+                        <p>Analyzing file...</p>
+                    </div>
+                    
+                    <div class="error-message" id="errorMessage"></div>
+                    <div class="success-message" id="successMessage"></div>
+                    
+                    <div class="analysis-card" id="analysisCard">
+                        <div class="analysis-header">
+                            <h2 class="analysis-title">Analysis Results</h2>
+                            <span class="analysis-timestamp" id="analysisTimestamp"></span>
+                        </div>
+                        <div class="analysis-content" id="analysisContent">
+                            <!-- Analysis results will be populated here -->
+                        </div>
+                    </div>
                 </div>
                 
                 <script>
-                    document.addEventListener('DOMContentLoaded', function() {
-                        const fileInput = document.getElementById('fileInput');
-                        const fileLabel = document.getElementById('fileLabel');
-                        const uploadButton = document.getElementById('uploadButton');
-                        
-                        // File input change handler
-                        fileInput.addEventListener('change', function(e) {
-                            const fileName = e.target.files[0]?.name;
-                            fileLabel.textContent = fileName || 'Choose a PCAP file or drag it here';
-                        });
-                        
-                        // Drag and drop handlers
-                        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-                            fileLabel.addEventListener(eventName, preventDefaults, false);
-                            document.body.addEventListener(eventName, preventDefaults, false);
-                        });
-                        
-                        ['dragenter', 'dragover'].forEach(eventName => {
-                            fileLabel.addEventListener(eventName, highlight, false);
-                        });
-                        
-                        ['dragleave', 'drop'].forEach(eventName => {
-                            fileLabel.addEventListener(eventName, unhighlight, false);
-                        });
-                        
-                        fileLabel.addEventListener('drop', handleDrop, false);
-                        
-                        // Upload button click handler
-                        uploadButton.addEventListener('click', uploadAndAnalyze);
-                        
-                        function preventDefaults(e) {
-                            e.preventDefault();
-                            e.stopPropagation();
-                        }
-                        
-                        function highlight(e) {
-                            fileLabel.classList.add('dragover');
-                        }
-                        
-                        function unhighlight(e) {
-                            fileLabel.classList.remove('dragover');
-                        }
-                        
-                        function handleDrop(e) {
-                            const dt = e.dataTransfer;
-                            const files = dt.files;
-                            fileInput.files = files;
-                            
-                            const fileName = files[0]?.name;
-                            fileLabel.textContent = fileName || 'Choose a PCAP file or drag it here';
-                        }
-                        
-                        async function uploadAndAnalyze() {
-                            const file = fileInput.files[0];
-                            
-                            if (!file) {
-                                showError('Please select a file first');
-                                return;
-                            }
-                            
-                            // Show loading state
-                            const originalText = uploadButton.innerHTML;
-                            uploadButton.disabled = true;
-                            uploadButton.innerHTML = `
-                                <div class="loading-spinner"></div>
-                                Analyzing...
-                            `;
-                            
-                            try {
-                                const formData = new FormData();
-                                formData.append('file', file);
-                                
-                                const response = await fetch('/api/upload', {
-                                    method: 'POST',
-                                    body: formData
-                                });
-                                
-                                if (!response.ok) {
-                                    throw new Error('Upload failed');
-                                }
-                                
-                                const data = await response.json();
-                                
-                                if (data.error) {
-                                    throw new Error(data.error);
-                                }
-                                
-                                // Display the analysis results
-                                displayAnalysis(data);
-                                
-                                // Clear file input
-                                fileInput.value = '';
-                                fileLabel.textContent = 'Choose a PCAP file or drag it here';
-                                
-                                // Show success message
-                                showSuccess('Analysis completed successfully');
-                                
-                            } catch (error) {
-                                console.error('Error:', error);
-                                showError(error.message || 'An error occurred during analysis');
-                            } finally {
-                                // Reset button state
-                                uploadButton.disabled = false;
-                                uploadButton.innerHTML = originalText;
-                            }
-                        }
-                    });
-                    
+                    const fileInput = document.getElementById('fileInput');
+                    const uploadBtn = document.getElementById('uploadBtn');
                     const loading = document.getElementById('loading');
                     const errorMessage = document.getElementById('errorMessage');
                     const successMessage = document.getElementById('successMessage');
                     const analysisCard = document.getElementById('analysisCard');
                     const analysisContent = document.getElementById('analysisContent');
                     const analysisTimestamp = document.getElementById('analysisTimestamp');
+                    
+                    // Drag and drop functionality
+                    fileInput.addEventListener('dragover', (e) => {
+                        e.preventDefault();
+                        fileInput.classList.add('dragover');
+                    });
+                    
+                    fileInput.addEventListener('dragleave', () => {
+                        fileInput.classList.remove('dragover');
+                    });
+                    
+                    fileInput.addEventListener('drop', (e) => {
+                        e.preventDefault();
+                        fileInput.classList.remove('dragover');
+                        fileInput.files = e.dataTransfer.files;
+                    });
+                    
+                    uploadBtn.addEventListener('click', async () => {
+                        const file = fileInput.files[0];
+                        if (!file) {
+                            showError('Please select a file first');
+                            return;
+                        }
+                        
+                        const formData = new FormData();
+                        formData.append('file', file);
+                        
+                        try {
+                            // Show loading state
+                            loading.style.display = 'block';
+                            errorMessage.style.display = 'none';
+                            successMessage.style.display = 'none';
+                            analysisCard.classList.remove('show');
+                            
+                            const response = await fetch('/upload', {
+                                method: 'POST',
+                                body: formData
+                            });
+                            
+                            const data = await response.json();
+                            
+                            if (response.ok) {
+                                showSuccess('File uploaded successfully!');
+                                displayAnalysis(data);
+                            } else {
+                                showError(data.error || 'Upload failed');
+                            }
+                        } catch (error) {
+                            showError('An error occurred during upload');
+                        } finally {
+                            loading.style.display = 'none';
+                        }
+                    });
                     
                     function showError(message) {
                         errorMessage.textContent = message;
@@ -825,7 +833,7 @@ class Handler(BaseHTTPRequestHandler):
                         // Add analysis items
                         if (data.analysis) {
                             // Store the analysis for chat context
-                            window.lastAnalysis = data.analysis;
+                            window.lastAnalysis = JSON.stringify(data.analysis);
                             
                             // Display protocol analysis if available
                             if (data.analysis.protocol_analysis) {
@@ -860,7 +868,7 @@ class Handler(BaseHTTPRequestHandler):
                                     <div class="analysis-item">
                                         <div class="analysis-item-title">Top Source IPs</div>
                                         <div class="ip-list">
-                                            ${Object.entries(data.analysis.top_source_ips || {}).map(([ip, count]) => `
+                                            ${Object.entries(data.analysis.top_source_ips).map(([ip, count]) => `
                                                 <div class="ip-item">
                                                     <span>${ip}</span>
                                                     <span class="ip-count">${count}</span>
@@ -871,7 +879,7 @@ class Handler(BaseHTTPRequestHandler):
                                     <div class="analysis-item">
                                         <div class="analysis-item-title">Top Destination IPs</div>
                                         <div class="ip-list">
-                                            ${Object.entries(data.analysis.top_destination_ips || {}).map(([ip, count]) => `
+                                            ${Object.entries(data.analysis.top_destination_ips).map(([ip, count]) => `
                                                 <div class="ip-item">
                                                     <span>${ip}</span>
                                                     <span class="ip-count">${count}</span>
@@ -896,6 +904,19 @@ class Handler(BaseHTTPRequestHandler):
                                 }
                             });
                             
+                            // Add print button
+                            const printButton = document.createElement('button');
+                            printButton.className = 'print-button';
+                            printButton.innerHTML = `
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/>
+                                    <path d="M6 14h12v8H6z"/>
+                                </svg>
+                                Print
+                            `;
+                            printButton.onclick = () => window.print();
+                            document.body.appendChild(printButton);
+                            
                             // Add AI analysis section
                             const aiSection = document.createElement('div');
                             aiSection.className = 'ai-analysis';
@@ -910,25 +931,10 @@ class Handler(BaseHTTPRequestHandler):
                                     </button>
                                 </div>
                                 <div class="ai-content" id="aiContent">
-                                    <div class="analysis-summary">
-                                        ${formatAnalysisSummary(data.analysis)}
-                                    </div>
+                                    ${typeof data.analysis === 'string' ? data.analysis : JSON.stringify(data.analysis, null, 2)}
                                 </div>
                             `;
                             analysisContent.appendChild(aiSection);
-                            
-                            // Add print button
-                            const printButton = document.createElement('button');
-                            printButton.className = 'print-button';
-                            printButton.innerHTML = `
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/>
-                                    <path d="M6 14h12v8H6z"/>
-                                </svg>
-                                Print
-                            `;
-                            printButton.onclick = () => window.print();
-                            document.body.appendChild(printButton);
                         }
                         
                         // Show the analysis card
@@ -951,37 +957,6 @@ class Handler(BaseHTTPRequestHandler):
                         return value;
                     }
                     
-                    function formatAnalysisSummary(analysis) {
-                        const summary = [];
-                        
-                        if (analysis.protocol_analysis && typeof analysis.protocol_analysis === 'object') {
-                            const protocols = Object.entries(analysis.protocol_analysis)
-                                .filter(([_, count]) => count > 0)
-                                .map(([protocol, count]) => `${protocol.toUpperCase()}: ${count} packets`)
-                                .join(', ');
-                            if (protocols) {
-                                summary.push(`Protocol Distribution: ${protocols}`);
-                            }
-                        }
-                        
-                        if (analysis.total_packets) {
-                            summary.push(`Total Packets: ${analysis.total_packets}`);
-                        }
-                        
-                        if (analysis.file_size) {
-                            summary.push(`File Size: ${formatFileSize(analysis.file_size)}`);
-                        }
-                        
-                        return summary.join('<br>');
-                    }
-                    
-                    function formatFileSize(bytes) {
-                        if (bytes < 1024) return bytes + ' B';
-                        else if (bytes < 1048576) return (bytes / 1024).toFixed(2) + ' KB';
-                        else if (bytes < 1073741824) return (bytes / 1048576).toFixed(2) + ' MB';
-                        else return (bytes / 1073741824).toFixed(2) + ' GB';
-                    }
-                    
                     function createChatInterface() {
                         // Remove existing chat interface if any
                         const existingChat = document.getElementById('chatInterface');
@@ -998,21 +973,12 @@ class Handler(BaseHTTPRequestHandler):
                                     <div class="chat-title">Discuss Analysis with AI</div>
                                     <button class="chat-close" onclick="closeChat()">&times;</button>
                                 </div>
-                                <div class="chat-messages" id="chatMessages">
-                                    <div class="chat-message ai-message">
-                                        Hello! I'm your AI assistant. Ask me any questions about the security analysis, and I'll help you understand the findings and implications.
-                                    </div>
-                                </div>
+                                <div class="chat-messages" id="chatMessages"></div>
                                 <div class="chat-input-container">
                                     <input type="text" class="chat-input" id="chatInput" 
                                            placeholder="Ask a question about the analysis..."
                                            onkeypress="if(event.key === 'Enter') sendMessage()">
-                                    <button class="chat-send" onclick="sendMessage()">
-                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                            <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
-                                        </svg>
-                                        Send
-                                    </button>
+                                    <button class="chat-send" onclick="sendMessage()">Send</button>
                                 </div>
                             </div>
                         `;
@@ -1048,23 +1014,17 @@ class Handler(BaseHTTPRequestHandler):
                         userMessageDiv.className = 'chat-message user-message';
                         userMessageDiv.textContent = message;
                         chatMessages.appendChild(userMessageDiv);
-
-                        // Add loading message
-                        const loadingDiv = document.createElement('div');
-                        loadingDiv.className = 'chat-message ai-message loading';
-                        loadingDiv.innerHTML = `
-                            <div class="loading-dots">
-                                <span></span>
-                                <span></span>
-                                <span></span>
-                            </div>
-                        `;
-                        chatMessages.appendChild(loadingDiv);
-                        
-                        // Scroll to bottom
-                        chatMessages.scrollTop = chatMessages.scrollHeight;
                         
                         try {
+                            // Add loading message
+                            const loadingDiv = document.createElement('div');
+                            loadingDiv.className = 'chat-message ai-message loading';
+                            loadingDiv.innerHTML = `
+                                <div class="loading-spinner"></div>
+                                <span>Analyzing...</span>
+                            `;
+                            chatMessages.appendChild(loadingDiv);
+                            
                             // Send message to API
                             const response = await fetch('/api/chat', {
                                 method: 'POST',
@@ -1087,17 +1047,10 @@ class Handler(BaseHTTPRequestHandler):
                             aiMessageDiv.className = 'chat-message ai-message';
                             
                             if (data.error) {
-                                aiMessageDiv.innerHTML = `
-                                    <div class="error-message">
-                                        ${data.response}
-                                    </div>
-                                `;
+                                aiMessageDiv.className += ' error';
+                                aiMessageDiv.textContent = data.response || 'Error: Unable to get response';
                             } else {
-                                aiMessageDiv.innerHTML = `
-                                    <div class="ai-response">
-                                        ${data.response.replace(/\n/g, '<br>')}
-                                    </div>
-                                `;
+                                aiMessageDiv.innerHTML = `<pre>${data.response}</pre>`;
                             }
                             
                             chatMessages.appendChild(aiMessageDiv);
@@ -1106,66 +1059,13 @@ class Handler(BaseHTTPRequestHandler):
                             chatMessages.scrollTop = chatMessages.scrollHeight;
                             
                         } catch (error) {
-                            // Remove loading message
-                            loadingDiv.remove();
-                            
                             console.error('Error sending message:', error);
                             const errorDiv = document.createElement('div');
                             errorDiv.className = 'chat-message ai-message error';
-                            errorDiv.innerHTML = `
-                                <div class="error-message">
-                                    Error sending message. Please try again.
-                                </div>
-                            `;
+                            errorDiv.textContent = 'Error sending message. Please try again.';
                             chatMessages.appendChild(errorDiv);
                         }
                     }
-
-                    // Add these styles
-                    const styles = `
-                        .loading-dots {
-                            display: flex;
-                            gap: 4px;
-                            padding: 10px;
-                        }
-                        
-                        .loading-dots span {
-                            width: 8px;
-                            height: 8px;
-                            border-radius: 50%;
-                            background: var(--primary-color);
-                            animation: bounce 1.4s infinite ease-in-out both;
-                        }
-                        
-                        .loading-dots span:nth-child(1) { animation-delay: -0.32s; }
-                        .loading-dots span:nth-child(2) { animation-delay: -0.16s; }
-                        
-                        @keyframes bounce {
-                            0%, 80%, 100% { transform: scale(0); }
-                            40% { transform: scale(1); }
-                        }
-                        
-                        .error-message {
-                            color: var(--error-color);
-                            padding: 8px;
-                            border-radius: 4px;
-                            background: rgba(255, 0, 0, 0.1);
-                        }
-                        
-                        .ai-response {
-                            white-space: pre-wrap;
-                            line-height: 1.5;
-                        }
-                        
-                        .chat-send svg {
-                            margin-right: 6px;
-                        }
-                    `;
-                    
-                    // Add styles to document
-                    const styleSheet = document.createElement("style");
-                    styleSheet.textContent = styles;
-                    document.head.appendChild(styleSheet);
                 </script>
             </body>
             </html>
