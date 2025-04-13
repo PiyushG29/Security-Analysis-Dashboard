@@ -31,14 +31,23 @@ class Handler(BaseHTTPRequestHandler):
                     @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
                     
                     :root {
-                        --primary-color: #4CAF50;
-                        --secondary-color: #45a049;
+                        --primary-color: #2196F3;
+                        --secondary-color: #1976D2;
+                        --accent-color: #FF9800;
+                        --success-color: #4CAF50;
+                        --error-color: #f44336;
+                        --warning-color: #FFC107;
+                        --info-color: #00BCD4;
                         --background-color: #f5f5f5;
                         --text-color: #333;
-                        --error-color: #f44336;
-                        --success-color: #4CAF50;
                         --card-shadow: 0 4px 6px rgba(0,0,0,0.1);
                         --hover-shadow: 0 8px 15px rgba(0,0,0,0.2);
+                        
+                        /* Protocol colors */
+                        --tcp-color: #2196F3;
+                        --udp-color: #FF9800;
+                        --icmp-color: #4CAF50;
+                        --other-color: #9C27B0;
                     }
                     
                     * {
@@ -52,7 +61,7 @@ class Handler(BaseHTTPRequestHandler):
                         max-width: 1200px;
                         margin: 0 auto;
                         padding: 20px;
-                        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+                        background: linear-gradient(135deg, #f5f7fa 0%, #e3e9f2 100%);
                         color: var(--text-color);
                         min-height: 100vh;
                     }
@@ -84,7 +93,7 @@ class Handler(BaseHTTPRequestHandler):
                         margin-bottom: 40px;
                         font-size: 2.5em;
                         font-weight: 700;
-                        background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
+                        background: linear-gradient(45deg, var(--primary-color), var(--accent-color));
                         -webkit-background-clip: text;
                         -webkit-text-fill-color: transparent;
                         animation: glow 2s ease-in-out infinite alternate;
@@ -326,6 +335,151 @@ class Handler(BaseHTTPRequestHandler):
                         border: 1px solid rgba(76, 175, 80, 0.2);
                     }
                     
+                    .protocol-analysis {
+                        margin-top: 30px;
+                        padding: 25px;
+                        background: white;
+                        border-radius: 15px;
+                        box-shadow: var(--card-shadow);
+                        animation: slideIn 0.5s ease-out;
+                    }
+                    
+                    .protocol-header {
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        margin-bottom: 20px;
+                    }
+                    
+                    .protocol-title {
+                        font-size: 1.4em;
+                        font-weight: 600;
+                        color: var(--primary-color);
+                    }
+                    
+                    .protocol-stats {
+                        display: grid;
+                        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                        gap: 20px;
+                        margin-top: 20px;
+                    }
+                    
+                    .protocol-stat {
+                        padding: 20px;
+                        border-radius: 12px;
+                        color: white;
+                        text-align: center;
+                        transition: transform 0.3s ease;
+                        position: relative;
+                        overflow: hidden;
+                    }
+                    
+                    .protocol-stat::before {
+                        content: '';
+                        position: absolute;
+                        top: 0;
+                        left: -100%;
+                        width: 100%;
+                        height: 100%;
+                        background: linear-gradient(
+                            90deg,
+                            transparent,
+                            rgba(255, 255, 255, 0.2),
+                            transparent
+                        );
+                        transition: 0.5s;
+                    }
+                    
+                    .protocol-stat:hover::before {
+                        left: 100%;
+                    }
+                    
+                    .protocol-stat:hover {
+                        transform: translateY(-5px);
+                    }
+                    
+                    .protocol-stat.tcp {
+                        background: linear-gradient(45deg, var(--tcp-color), #1565C0);
+                    }
+                    
+                    .protocol-stat.udp {
+                        background: linear-gradient(45deg, var(--udp-color), #F57C00);
+                    }
+                    
+                    .protocol-stat.icmp {
+                        background: linear-gradient(45deg, var(--icmp-color), #2E7D32);
+                    }
+                    
+                    .protocol-stat.other {
+                        background: linear-gradient(45deg, var(--other-color), #6A1B9A);
+                    }
+                    
+                    .protocol-name {
+                        font-size: 1.2em;
+                        font-weight: 600;
+                        margin-bottom: 10px;
+                    }
+                    
+                    .protocol-count {
+                        font-size: 2em;
+                        font-weight: 700;
+                    }
+                    
+                    .protocol-percentage {
+                        font-size: 1.1em;
+                        opacity: 0.9;
+                        margin-top: 10px;
+                    }
+                    
+                    .protocol-chart {
+                        margin-top: 30px;
+                        height: 200px;
+                        display: flex;
+                        align-items: flex-end;
+                        gap: 10px;
+                        padding: 20px;
+                        background: rgba(255, 255, 255, 0.8);
+                        border-radius: 12px;
+                    }
+                    
+                    .chart-bar {
+                        flex: 1;
+                        background: linear-gradient(to top, var(--primary-color), var(--secondary-color));
+                        border-radius: 8px 8px 0 0;
+                        transition: height 0.5s ease-out;
+                        position: relative;
+                        min-width: 40px;
+                    }
+                    
+                    .chart-bar::after {
+                        content: attr(data-count);
+                        position: absolute;
+                        top: -30px;
+                        left: 50%;
+                        transform: translateX(-50%);
+                        background: rgba(0, 0, 0, 0.8);
+                        color: white;
+                        padding: 5px 10px;
+                        border-radius: 4px;
+                        font-size: 0.9em;
+                        opacity: 0;
+                        transition: opacity 0.3s ease;
+                    }
+                    
+                    .chart-bar:hover::after {
+                        opacity: 1;
+                    }
+                    
+                    .chart-bar.tcp { background: linear-gradient(to top, var(--tcp-color), #1565C0); }
+                    .chart-bar.udp { background: linear-gradient(to top, var(--udp-color), #F57C00); }
+                    .chart-bar.icmp { background: linear-gradient(to top, var(--icmp-color), #2E7D32); }
+                    .chart-bar.other { background: linear-gradient(to top, var(--other-color), #6A1B9A); }
+                    
+                    @keyframes growBar {
+                        from { height: 0; }
+                        to { height: var(--target-height); }
+                    }
+                    
                     @media (max-width: 768px) {
                         .container {
                             padding: 20px;
@@ -454,19 +608,64 @@ class Handler(BaseHTTPRequestHandler):
                         
                         // Add analysis items
                         if (data.analysis) {
-                            Object.entries(data.analysis).forEach(([key, value]) => {
-                                const item = document.createElement('div');
-                                item.className = 'analysis-item';
-                                item.innerHTML = `
-                                    <div class="analysis-item-title">${formatKey(key)}</div>
-                                    <div class="analysis-item-value">${formatValue(value)}</div>
+                            // Display protocol analysis if available
+                            if (data.analysis.protocol_analysis) {
+                                const protocolStats = data.analysis.protocol_analysis;
+                                const total = Object.values(protocolStats).reduce((a, b) => a + b, 0);
+                                
+                                const protocolHTML = `
+                                    <div class="protocol-analysis">
+                                        <div class="protocol-header">
+                                            <h2 class="protocol-title">Protocol Analysis</h2>
+                                        </div>
+                                        <div class="protocol-stats">
+                                            ${Object.entries(protocolStats).map(([protocol, count]) => `
+                                                <div class="protocol-stat ${protocol.toLowerCase()}">
+                                                    <div class="protocol-name">${protocol.toUpperCase()}</div>
+                                                    <div class="protocol-count">${count}</div>
+                                                    <div class="protocol-percentage">
+                                                        ${((count / total) * 100).toFixed(1)}%
+                                                    </div>
+                                                </div>
+                                            `).join('')}
+                                        </div>
+                                        <div class="protocol-chart">
+                                            ${Object.entries(protocolStats).map(([protocol, count]) => `
+                                                <div class="chart-bar ${protocol.toLowerCase()}"
+                                                     style="height: ${(count / total) * 100}%"
+                                                     data-count="${count}">
+                                                </div>
+                                            `).join('')}
+                                        </div>
+                                    </div>
                                 `;
-                                analysisContent.appendChild(item);
+                                
+                                analysisContent.innerHTML += protocolHTML;
+                            }
+                            
+                            // Add other analysis items
+                            Object.entries(data.analysis).forEach(([key, value]) => {
+                                if (key !== 'protocol_analysis') {
+                                    const item = document.createElement('div');
+                                    item.className = 'analysis-item';
+                                    item.innerHTML = `
+                                        <div class="analysis-item-title">${formatKey(key)}</div>
+                                        <div class="analysis-item-value">${formatValue(value)}</div>
+                                    `;
+                                    analysisContent.appendChild(item);
+                                }
                             });
                         }
                         
                         // Show the analysis card
                         analysisCard.classList.add('show');
+                        
+                        // Animate chart bars
+                        setTimeout(() => {
+                            document.querySelectorAll('.chart-bar').forEach(bar => {
+                                bar.style.animation = `growBar 1s ease-out forwards`;
+                            });
+                        }, 100);
                     }
                     
                     function formatKey(key) {
