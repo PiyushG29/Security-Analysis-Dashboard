@@ -1,13 +1,15 @@
 import sys
 import os
-from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI, Request, UploadFile, File
+from fastapi.responses import JSONResponse, HTMLResponse
 from http.server import BaseHTTPRequestHandler
 import json
 import base64
 import re
 from datetime import datetime
 import socket
+from io import BytesIO
+import dpkt
 
 # Add the project root to the Python path
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
@@ -1078,18 +1080,16 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         try:
-            content_length = int(self.headers['Content-Length'])
-            post_data = self.rfile.read(content_length)
-            
             if self.path == '/upload':
-                # Parse the multipart form data
+                content_length = int(self.headers['Content-Length'])
+                post_data = self.rfile.read(content_length)
+                
+                # Parse multipart form data
                 content_type = self.headers['Content-Type']
                 boundary = content_type.split('boundary=')[1].encode()
-                
-                # Split the data into parts
                 parts = post_data.split(boundary)
                 
-                # Find the file part
+                # Find file data
                 file_data = None
                 for part in parts:
                     if b'filename=' in part:
@@ -1097,11 +1097,14 @@ class Handler(BaseHTTPRequestHandler):
                         break
                 
                 if file_data:
-                    # Extract the file content
+                    # Extract file content
                     file_content = file_data.split(b'\r\n\r\n')[1].split(b'\r\n--')[0]
                     
-                    # Analyze the file content
-                    analysis = self.analyze_file(file_content)
+                    # Create BytesIO object for analysis
+                    file_obj = BytesIO(file_content)
+                    
+                    # Analyze file
+                    analysis_result = analyze_file(file_obj)
                     
                     self.send_response(200)
                     self.send_header('Content-type', 'application/json')
@@ -1109,8 +1112,7 @@ class Handler(BaseHTTPRequestHandler):
                     self.wfile.write(json.dumps({
                         "message": "File uploaded successfully",
                         "status": "success",
-                        "file_size": len(file_content),
-                        "analysis": analysis
+                        "analysis": analysis_result
                     }).encode())
                 else:
                     self.send_response(400)
@@ -1120,112 +1122,146 @@ class Handler(BaseHTTPRequestHandler):
                         "error": "No file found in request"
                     }).encode())
             else:
-                self.send_response(404)
-                self.send_header('Content-type', 'application/json')
+                # Forward other POST requests to FastAPI
+                scope = {
+                    "type": "http",
+                    "method": "POST",
+                    "path": self.path,
+                    "headers": [(k.lower().encode(), v.encode()) for k, v in self.headers.items()],
+                    "query_string": b"",
+                }
+                
+                # Create a response object to capture FastAPI's response
+                response = {"status": None, "headers": None, "body": b""}
+                
+                async def receive():
+                    return {"type": "http.request", "body": post_data}
+                
+                async def send(message):
+                    if message["type"] == "http.response.start":
+                        response["status"] = message["status"]
+                        response["headers"] = message["headers"]
+                    elif message["type"] == "http.response.body":
+                        response["body"] += message.get("body", b"")
+                
+                # Run the FastAPI application
+                import asyncio
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                loop.run_until_complete(app(scope, receive, send))
+                loop.close()
+                
+                # Send the response back
+                self.send_response(response["status"] or 500)
+                if response["headers"]:
+                    for name, value in response["headers"]:
+                        self.send_header(name.decode(), value.decode())
                 self.end_headers()
-                self.wfile.write(json.dumps({
-                    "error": "Endpoint not found"
-                }).encode())
-
+                self.wfile.write(response["body"])
+                
         except Exception as e:
             self.send_response(500)
             self.send_header('Content-type', 'application/json')
             self.end_headers()
             self.wfile.write(json.dumps({"error": str(e)}).encode())
 
-    def analyze_file(self, content):
-        """Analyze the file content and return analysis results"""
+def analyze_file(file_obj):
+    """Analyze the file content and return analysis results"""
+    try:
+        # Read file content
+        content = file_obj.read()
+        content_str = content.decode('utf-8', errors='ignore')
+        
+        # Basic file analysis
+        analysis = {
+            "file_size": len(content),
+            "line_count": len(content_str.splitlines()),
+            "word_count": len(content_str.split()),
+            "character_count": len(content_str),
+            "contains_ip": bool(re.search(r'\b(?:\d{1,3}\.){3}\d{1,3}\b', content_str)),
+            "contains_url": bool(re.search(r'https?://\S+', content_str)),
+            "contains_email": bool(re.search(r'[\w\.-]+@[\w\.-]+\.\w+', content_str)),
+            "timestamp": datetime.now().isoformat()
+        }
+        
+        # Try to analyze as PCAP file
         try:
-            # Convert bytes to string for analysis
-            content_str = content.decode('utf-8', errors='ignore')
+            file_obj.seek(0)  # Reset file pointer
+            pcap = dpkt.pcap.Reader(file_obj)
             
-            # Basic file analysis
-            analysis = {
-                "file_size": len(content),
-                "line_count": len(content_str.splitlines()),
-                "word_count": len(content_str.split()),
-                "character_count": len(content_str),
-                "contains_ip": bool(re.search(r'\b(?:\d{1,3}\.){3}\d{1,3}\b', content_str)),
-                "contains_url": bool(re.search(r'https?://\S+', content_str)),
-                "contains_email": bool(re.search(r'[\w\.-]+@[\w\.-]+\.\w+', content_str)),
-                "timestamp": datetime.now().isoformat()
-            }
+            # Initialize counters
+            protocol_stats = {'tcp': 0, 'udp': 0, 'icmp': 0, 'other': 0}
+            source_ips = {}
+            dest_ips = {}
             
-            # Try to analyze as PCAP file
-            try:
-                from io import BytesIO
-                import dpkt
-                
-                # Create a BytesIO object from the content
-                pcap_file = BytesIO(content)
-                
-                # Create a PCAP reader
-                pcap = dpkt.pcap.Reader(pcap_file)
-                
-                # Initialize protocol counters
-                protocol_stats = {
-                    'tcp': 0,
-                    'udp': 0,
-                    'icmp': 0,
-                    'other': 0
-                }
-                
-                # Initialize IP counters
-                source_ips = {}
-                dest_ips = {}
-                
-                # Analyze each packet
-                for timestamp, buf in pcap:
-                    try:
-                        eth = dpkt.ethernet.Ethernet(buf)
-                        if isinstance(eth.data, dpkt.ip.IP):
-                            ip = eth.data
-                            
-                            # Count source and destination IPs
-                            src_ip = socket.inet_ntoa(ip.src)
-                            dst_ip = socket.inet_ntoa(ip.dst)
-                            
-                            source_ips[src_ip] = source_ips.get(src_ip, 0) + 1
-                            dest_ips[dst_ip] = dest_ips.get(dst_ip, 0) + 1
-                            
-                            # Count protocols
-                            if isinstance(ip.data, dpkt.tcp.TCP):
-                                protocol_stats['tcp'] += 1
-                            elif isinstance(ip.data, dpkt.udp.UDP):
-                                protocol_stats['udp'] += 1
-                            elif isinstance(ip.data, dpkt.icmp.ICMP):
-                                protocol_stats['icmp'] += 1
-                            else:
-                                protocol_stats['other'] += 1
-                    except:
-                        continue
-                
-                # Add PCAP-specific analysis
-                analysis.update({
-                    "protocol_analysis": protocol_stats,
-                    "top_source_ips": dict(sorted(source_ips.items(), key=lambda x: x[1], reverse=True)[:10]),
-                    "top_destination_ips": dict(sorted(dest_ips.items(), key=lambda x: x[1], reverse=True)[:10]),
-                    "total_packets": sum(protocol_stats.values()),
-                    "file_type": "PCAP"
-                })
-                
-            except Exception as e:
-                # If not a PCAP file, try other analysis
-                analysis.update({
-                    "protocol_analysis": {"error": "Not a PCAP file or invalid format"},
-                    "top_source_ips": {},
-                    "top_destination_ips": {},
-                    "file_type": "Unknown"
-                })
+            # Analyze packets
+            for timestamp, buf in pcap:
+                try:
+                    eth = dpkt.ethernet.Ethernet(buf)
+                    if isinstance(eth.data, dpkt.ip.IP):
+                        ip = eth.data
+                        
+                        # Count IPs
+                        src_ip = socket.inet_ntoa(ip.src)
+                        dst_ip = socket.inet_ntoa(ip.dst)
+                        source_ips[src_ip] = source_ips.get(src_ip, 0) + 1
+                        dest_ips[dst_ip] = dest_ips.get(dst_ip, 0) + 1
+                        
+                        # Count protocols
+                        if isinstance(ip.data, dpkt.tcp.TCP):
+                            protocol_stats['tcp'] += 1
+                        elif isinstance(ip.data, dpkt.udp.UDP):
+                            protocol_stats['udp'] += 1
+                        elif isinstance(ip.data, dpkt.icmp.ICMP):
+                            protocol_stats['icmp'] += 1
+                        else:
+                            protocol_stats['other'] += 1
+                except:
+                    continue
             
-            return analysis
+            # Add PCAP analysis
+            analysis.update({
+                "protocol_analysis": protocol_stats,
+                "top_source_ips": dict(sorted(source_ips.items(), key=lambda x: x[1], reverse=True)[:10]),
+                "top_destination_ips": dict(sorted(dest_ips.items(), key=lambda x: x[1], reverse=True)[:10]),
+                "total_packets": sum(protocol_stats.values()),
+                "file_type": "PCAP"
+            })
             
         except Exception as e:
-            return {
-                "error": str(e),
-                "file_size": len(content),
-                "timestamp": datetime.now().isoformat()
-            }
+            analysis.update({
+                "protocol_analysis": {"error": "Not a PCAP file or invalid format"},
+                "top_source_ips": {},
+                "top_destination_ips": {},
+                "file_type": "Unknown"
+            })
+        
+        return analysis
+        
+    except Exception as e:
+        return {
+            "error": str(e),
+            "file_size": len(content),
+            "timestamp": datetime.now().isoformat()
+        }
 
-# Vercel requires this specific handler
+# Add FastAPI routes
+@app.post("/upload")
+async def upload_file(file: UploadFile = File(...)):
+    try:
+        contents = await file.read()
+        file_obj = BytesIO(contents)
+        analysis_result = analyze_file(file_obj)
+        
+        return JSONResponse({
+            "message": "File uploaded successfully",
+            "status": "success",
+            "analysis": analysis_result
+        })
+    except Exception as e:
+        return JSONResponse({
+            "error": str(e)
+        }, status_code=500)
+
+# Vercel handler
 handler = Handler 
