@@ -31,6 +31,10 @@ else:
 class AnalysisRequest(BaseModel):
     analysis: str
 
+class ChatRequest(BaseModel):
+    message: str
+    context: str
+
 @app.post("/api/analyze")
 async def analyze_threats(request: Request):
     try:
@@ -65,7 +69,7 @@ async def analyze_threats(request: Request):
             )
 
         analysis_data = body['analysis']
-        logger.info(f"Received analysis data: {analysis_data[:100]}...")  # Log first 100 chars
+        logger.info(f"Received analysis data: {analysis_data[:100]}...")
 
         # Initialize Gemini model
         model = genai.GenerativeModel('gemini-pro')
@@ -112,7 +116,8 @@ async def analyze_threats(request: Request):
                 status_code=200,
                 content={
                     "error": False,
-                    "analysis": response.text
+                    "analysis": response.text,
+                    "chat_enabled": True
                 }
             )
             
@@ -133,6 +138,72 @@ async def analyze_threats(request: Request):
             content={
                 "error": True,
                 "analysis": "An unexpected error occurred during analysis."
+            }
+        )
+
+@app.post("/api/chat")
+async def chat_with_ai(request: Request):
+    try:
+        if not GEMINI_API_KEY:
+            return JSONResponse(
+                status_code=500,
+                content={
+                    "error": True,
+                    "response": "Chat is currently unavailable. Please check the API configuration."
+                }
+            )
+
+        body = await request.json()
+        if not body or 'message' not in body or 'context' not in body:
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "error": True,
+                    "response": "Invalid request format. Expected 'message' and 'context' fields."
+                }
+            )
+
+        user_message = body['message']
+        analysis_context = body['context']
+
+        model = genai.GenerativeModel('gemini-pro')
+        
+        prompt = f"""
+        Context: You are discussing a security analysis of network traffic. Here is the analysis context:
+        {analysis_context}
+
+        User Question: {user_message}
+
+        Please provide a helpful response addressing the user's question about the security analysis.
+        Focus on explaining technical details in a clear way and providing actionable recommendations when appropriate.
+        """
+
+        response = model.generate_content(prompt)
+        
+        if not response or not response.text:
+            return JSONResponse(
+                status_code=500,
+                content={
+                    "error": True,
+                    "response": "No response generated. Please try again."
+                }
+            )
+
+        return JSONResponse(
+            status_code=200,
+            content={
+                "error": False,
+                "response": response.text
+            }
+        )
+
+    except Exception as e:
+        logger.error(f"Error in chat: {str(e)}", exc_info=True)
+        return JSONResponse(
+            status_code=500,
+            content={
+                "error": True,
+                "response": "An error occurred while processing your message."
             }
         )
 

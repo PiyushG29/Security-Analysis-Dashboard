@@ -560,40 +560,122 @@ class Handler(BaseHTTPRequestHandler):
                     }
                     
                     .ai-analysis {
-                        margin-top: 30px;
-                        padding: 25px;
-                        background: white;
-                        border-radius: 15px;
+                        margin-top: 20px;
+                        padding: 20px;
+                        border-radius: 12px;
+                        background: var(--card-bg);
                         box-shadow: var(--card-shadow);
-                        animation: slideIn 0.5s ease-out;
                     }
                     
-                    .ai-header {
+                    .chat-window {
+                        display: none;
+                        position: fixed;
+                        top: 50%;
+                        left: 50%;
+                        transform: translate(-50%, -50%);
+                        width: 80%;
+                        max-width: 800px;
+                        height: 80vh;
+                        background: var(--card-bg);
+                        border-radius: 12px;
+                        box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+                        z-index: 1000;
+                        padding: 20px;
+                        display: flex;
+                        flex-direction: column;
+                    }
+                    
+                    .chat-header {
                         display: flex;
                         justify-content: space-between;
                         align-items: center;
-                        margin-bottom: 20px;
+                        padding-bottom: 15px;
+                        border-bottom: 1px solid var(--border-color);
                     }
                     
-                    .ai-title {
-                        font-size: 1.4em;
+                    .chat-title {
+                        font-size: 1.2em;
                         font-weight: 600;
-                        color: var(--primary-color);
+                        color: var(--text-color);
                     }
                     
-                    .ai-content {
-                        margin-top: 20px;
-                        padding: 15px;
-                        background: rgba(248, 249, 250, 0.8);
-                        border-radius: 12px;
-                        min-height: 100px;
+                    .chat-close {
+                        background: none;
+                        border: none;
+                        color: var(--text-color);
+                        cursor: pointer;
+                        font-size: 1.5em;
+                        padding: 5px;
                     }
                     
-                    .ai-loading {
+                    .chat-messages {
+                        flex-grow: 1;
+                        overflow-y: auto;
+                        padding: 15px 0;
                         display: flex;
-                        align-items: center;
+                        flex-direction: column;
                         gap: 10px;
-                        color: var(--primary-color);
+                    }
+                    
+                    .chat-message {
+                        padding: 10px 15px;
+                        border-radius: 10px;
+                        max-width: 80%;
+                    }
+                    
+                    .user-message {
+                        background: var(--primary-color);
+                        color: white;
+                        align-self: flex-end;
+                    }
+                    
+                    .ai-message {
+                        background: var(--secondary-bg);
+                        color: var(--text-color);
+                        align-self: flex-start;
+                    }
+                    
+                    .chat-input-container {
+                        display: flex;
+                        gap: 10px;
+                        padding-top: 15px;
+                        border-top: 1px solid var(--border-color);
+                    }
+                    
+                    .chat-input {
+                        flex-grow: 1;
+                        padding: 10px;
+                        border: 1px solid var(--border-color);
+                        border-radius: 8px;
+                        background: var(--input-bg);
+                        color: var(--text-color);
+                        font-size: 0.9em;
+                    }
+                    
+                    .chat-send {
+                        padding: 10px 20px;
+                        background: var(--primary-color);
+                        color: white;
+                        border: none;
+                        border-radius: 8px;
+                        cursor: pointer;
+                        font-weight: 500;
+                        transition: all 0.3s ease;
+                    }
+                    
+                    .chat-send:hover {
+                        background: var(--primary-color-dark);
+                    }
+                    
+                    .chat-overlay {
+                        display: none;
+                        position: fixed;
+                        top: 0;
+                        left: 0;
+                        right: 0;
+                        bottom: 0;
+                        background: rgba(0,0,0,0.5);
+                        z-index: 999;
                     }
                     
                     @media print {
@@ -728,6 +810,9 @@ class Handler(BaseHTTPRequestHandler):
                         
                         // Add analysis items
                         if (data.analysis) {
+                            // Store the analysis for chat context
+                            window.lastAnalysis = data.analysis;
+                            
                             // Display protocol analysis if available
                             if (data.analysis.protocol_analysis) {
                                 const protocolStats = data.analysis.protocol_analysis;
@@ -810,24 +895,41 @@ class Handler(BaseHTTPRequestHandler):
                             printButton.onclick = () => window.print();
                             document.body.appendChild(printButton);
                             
-                            // Add AI analysis section
+                            // Add AI analysis section with chat button
                             const aiSection = document.createElement('div');
                             aiSection.className = 'ai-analysis';
                             aiSection.innerHTML = `
                                 <div class="ai-header">
                                     <h2 class="ai-title">AI Threat Analysis</h2>
+                                    <button class="chat-button" onclick="openChat()">
+                                        Discuss Analysis
+                                    </button>
                                 </div>
-                                <div class="ai-content" id="aiContent">
-                                    <div class="ai-loading">
-                                        <div class="loading-spinner"></div>
-                                        Analyzing threats...
-                                    </div>
+                                <div class="ai-content">
+                                    ${data.analysis}
                                 </div>
                             `;
                             analysisContent.appendChild(aiSection);
                             
-                            // Call AI analysis
-                            analyzeThreats(data.analysis);
+                            // Add chat interface (hidden by default)
+                            const chatInterface = document.createElement('div');
+                            chatInterface.innerHTML = `
+                                <div class="chat-overlay" id="chatOverlay"></div>
+                                <div class="chat-window" id="chatWindow">
+                                    <div class="chat-header">
+                                        <div class="chat-title">Discuss Analysis with AI</div>
+                                        <button class="chat-close" onclick="closeChat()">&times;</button>
+                                    </div>
+                                    <div class="chat-messages" id="chatMessages"></div>
+                                    <div class="chat-input-container">
+                                        <input type="text" class="chat-input" id="chatInput" 
+                                               placeholder="Ask a question about the analysis..."
+                                               onkeypress="if(event.key === 'Enter') sendMessage()">
+                                        <button class="chat-send" onclick="sendMessage()">Send</button>
+                                    </div>
+                                </div>
+                            `;
+                            document.body.appendChild(chatInterface);
                         }
                         
                         // Show the analysis card
@@ -850,41 +952,62 @@ class Handler(BaseHTTPRequestHandler):
                         return value;
                     }
                     
-                    async function analyzeThreats(analysis) {
-                        const aiContent = document.getElementById('aiContent');
+                    function openChat() {
+                        document.getElementById('chatOverlay').style.display = 'block';
+                        document.getElementById('chatWindow').style.display = 'flex';
+                    }
+                    
+                    function closeChat() {
+                        document.getElementById('chatOverlay').style.display = 'none';
+                        document.getElementById('chatWindow').style.display = 'none';
+                    }
+                    
+                    async function sendMessage() {
+                        const input = document.getElementById('chatInput');
+                        const message = input.value.trim();
+                        
+                        if (!message) return;
+                        
+                        // Clear input
+                        input.value = '';
+                        
+                        // Add user message to chat
+                        const chatMessages = document.getElementById('chatMessages');
+                        const userMessageDiv = document.createElement('div');
+                        userMessageDiv.className = 'chat-message user-message';
+                        userMessageDiv.textContent = message;
+                        chatMessages.appendChild(userMessageDiv);
+                        
                         try {
-                            // Prepare analysis data for AI
-                            const analysisText = JSON.stringify(analysis, null, 2);
-                            
-                            // Call Gemini API
-                            const response = await fetch('/api/analyze', {
+                            // Send message to API
+                            const response = await fetch('/api/chat', {
                                 method: 'POST',
                                 headers: {
                                     'Content-Type': 'application/json',
                                 },
                                 body: JSON.stringify({
-                                    analysis: analysisText
+                                    message: message,
+                                    context: window.lastAnalysis
                                 })
                             });
                             
-                            if (!response.ok) {
-                                throw new Error('Failed to analyze threats');
-                            }
+                            const data = await response.json();
                             
-                            const result = await response.json();
-                            if (result && result.analysis) {
-                                aiContent.innerHTML = `
-                                    <div style="white-space: pre-wrap;">${result.analysis}</div>
-                                `;
-                            } else {
-                                throw new Error('Invalid response from AI analysis');
-                            }
+                            // Add AI response to chat
+                            const aiMessageDiv = document.createElement('div');
+                            aiMessageDiv.className = 'chat-message ai-message';
+                            aiMessageDiv.textContent = data.error ? data.response : data.response;
+                            chatMessages.appendChild(aiMessageDiv);
+                            
+                            // Scroll to bottom
+                            chatMessages.scrollTop = chatMessages.scrollHeight;
+                            
                         } catch (error) {
-                            aiContent.innerHTML = `
-                                <div style="color: var(--error-color);">
-                                    Error analyzing threats: ${error.message}
-                                </div>
-                            `;
+                            console.error('Error sending message:', error);
+                            const errorDiv = document.createElement('div');
+                            errorDiv.className = 'chat-message ai-message error';
+                            errorDiv.textContent = 'Error sending message. Please try again.';
+                            chatMessages.appendChild(errorDiv);
                         }
                     }
                 </script>
