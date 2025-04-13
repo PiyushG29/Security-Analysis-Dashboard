@@ -802,7 +802,7 @@ class Handler(BaseHTTPRequestHandler):
                         // Add analysis items
                         if (data.analysis) {
                             // Store the analysis for chat context
-                            window.lastAnalysis = JSON.stringify(data.analysis, null, 2);
+                            window.lastAnalysis = data.analysis;
                             
                             // Display protocol analysis if available
                             if (data.analysis.protocol_analysis) {
@@ -837,7 +837,7 @@ class Handler(BaseHTTPRequestHandler):
                                     <div class="analysis-item">
                                         <div class="analysis-item-title">Top Source IPs</div>
                                         <div class="ip-list">
-                                            ${Object.entries(data.analysis.top_source_ips).map(([ip, count]) => `
+                                            ${Object.entries(data.analysis.top_source_ips || {}).map(([ip, count]) => `
                                                 <div class="ip-item">
                                                     <span>${ip}</span>
                                                     <span class="ip-count">${count}</span>
@@ -848,7 +848,7 @@ class Handler(BaseHTTPRequestHandler):
                                     <div class="analysis-item">
                                         <div class="analysis-item-title">Top Destination IPs</div>
                                         <div class="ip-list">
-                                            ${Object.entries(data.analysis.top_destination_ips).map(([ip, count]) => `
+                                            ${Object.entries(data.analysis.top_destination_ips || {}).map(([ip, count]) => `
                                                 <div class="ip-item">
                                                     <span>${ip}</span>
                                                     <span class="ip-count">${count}</span>
@@ -873,19 +873,6 @@ class Handler(BaseHTTPRequestHandler):
                                 }
                             });
                             
-                            // Add print button
-                            const printButton = document.createElement('button');
-                            printButton.className = 'print-button';
-                            printButton.innerHTML = `
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/>
-                                    <path d="M6 14h12v8H6z"/>
-                                </svg>
-                                Print
-                            `;
-                            printButton.onclick = () => window.print();
-                            document.body.appendChild(printButton);
-                            
                             // Add AI analysis section
                             const aiSection = document.createElement('div');
                             aiSection.className = 'ai-analysis';
@@ -900,10 +887,25 @@ class Handler(BaseHTTPRequestHandler):
                                     </button>
                                 </div>
                                 <div class="ai-content" id="aiContent">
-                                    ${data.analysis}
+                                    <div class="analysis-summary">
+                                        ${formatAnalysisSummary(data.analysis)}
+                                    </div>
                                 </div>
                             `;
                             analysisContent.appendChild(aiSection);
+                            
+                            // Add print button
+                            const printButton = document.createElement('button');
+                            printButton.className = 'print-button';
+                            printButton.innerHTML = `
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/>
+                                    <path d="M6 14h12v8H6z"/>
+                                </svg>
+                                Print
+                            `;
+                            printButton.onclick = () => window.print();
+                            document.body.appendChild(printButton);
                         }
                         
                         // Show the analysis card
@@ -924,6 +926,37 @@ class Handler(BaseHTTPRequestHandler):
                             return JSON.stringify(value, null, 2);
                         }
                         return value;
+                    }
+                    
+                    function formatAnalysisSummary(analysis) {
+                        const summary = [];
+                        
+                        if (analysis.protocol_analysis && typeof analysis.protocol_analysis === 'object') {
+                            const protocols = Object.entries(analysis.protocol_analysis)
+                                .filter(([_, count]) => count > 0)
+                                .map(([protocol, count]) => `${protocol.toUpperCase()}: ${count} packets`)
+                                .join(', ');
+                            if (protocols) {
+                                summary.push(`Protocol Distribution: ${protocols}`);
+                            }
+                        }
+                        
+                        if (analysis.total_packets) {
+                            summary.push(`Total Packets: ${analysis.total_packets}`);
+                        }
+                        
+                        if (analysis.file_size) {
+                            summary.push(`File Size: ${formatFileSize(analysis.file_size)}`);
+                        }
+                        
+                        return summary.join('<br>');
+                    }
+                    
+                    function formatFileSize(bytes) {
+                        if (bytes < 1024) return bytes + ' B';
+                        else if (bytes < 1048576) return (bytes / 1024).toFixed(2) + ' KB';
+                        else if (bytes < 1073741824) return (bytes / 1048576).toFixed(2) + ' MB';
+                        else return (bytes / 1073741824).toFixed(2) + ' GB';
                     }
                     
                     function createChatInterface() {
