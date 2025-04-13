@@ -493,6 +493,87 @@ class Handler(BaseHTTPRequestHandler):
                             grid-template-columns: 1fr;
                         }
                     }
+                    
+                    .print-button {
+                        background: linear-gradient(45deg, var(--primary-color), var(--accent-color));
+                        color: white;
+                        padding: 12px 25px;
+                        border: none;
+                        border-radius: 8px;
+                        cursor: pointer;
+                        font-size: 1em;
+                        font-weight: 500;
+                        transition: all 0.3s ease;
+                        margin-top: 20px;
+                        display: flex;
+                        align-items: center;
+                        gap: 8px;
+                    }
+                    
+                    .print-button:hover {
+                        transform: translateY(-2px);
+                        box-shadow: var(--hover-shadow);
+                    }
+                    
+                    .print-button svg {
+                        width: 20px;
+                        height: 20px;
+                    }
+                    
+                    .ai-analysis {
+                        margin-top: 30px;
+                        padding: 25px;
+                        background: white;
+                        border-radius: 15px;
+                        box-shadow: var(--card-shadow);
+                        animation: slideIn 0.5s ease-out;
+                    }
+                    
+                    .ai-header {
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        margin-bottom: 20px;
+                    }
+                    
+                    .ai-title {
+                        font-size: 1.4em;
+                        font-weight: 600;
+                        color: var(--primary-color);
+                    }
+                    
+                    .ai-content {
+                        margin-top: 20px;
+                        padding: 15px;
+                        background: rgba(248, 249, 250, 0.8);
+                        border-radius: 12px;
+                        min-height: 100px;
+                    }
+                    
+                    .ai-loading {
+                        display: flex;
+                        align-items: center;
+                        gap: 10px;
+                        color: var(--primary-color);
+                    }
+                    
+                    @media print {
+                        body * {
+                            visibility: hidden;
+                        }
+                        .analysis-card, .analysis-card * {
+                            visibility: visible;
+                        }
+                        .analysis-card {
+                            position: absolute;
+                            left: 0;
+                            top: 0;
+                            width: 100%;
+                        }
+                        .print-button {
+                            display: none;
+                        }
+                    }
                 </style>
             </head>
             <body>
@@ -643,9 +724,24 @@ class Handler(BaseHTTPRequestHandler):
                                 analysisContent.innerHTML += protocolHTML;
                             }
                             
+                            // Add IP analysis first
+                            if (data.analysis.top_source_ips || data.analysis.top_destination_ips) {
+                                const ipHTML = `
+                                    <div class="analysis-item">
+                                        <div class="analysis-item-title">Top Source IPs</div>
+                                        <div class="analysis-item-value">${formatValue(data.analysis.top_source_ips)}</div>
+                                    </div>
+                                    <div class="analysis-item">
+                                        <div class="analysis-item-title">Top Destination IPs</div>
+                                        <div class="analysis-item-value">${formatValue(data.analysis.top_destination_ips)}</div>
+                                    </div>
+                                `;
+                                analysisContent.innerHTML += ipHTML;
+                            }
+                            
                             // Add other analysis items
                             Object.entries(data.analysis).forEach(([key, value]) => {
-                                if (key !== 'protocol_analysis') {
+                                if (!['protocol_analysis', 'top_source_ips', 'top_destination_ips'].includes(key)) {
                                     const item = document.createElement('div');
                                     item.className = 'analysis-item';
                                     item.innerHTML = `
@@ -655,6 +751,38 @@ class Handler(BaseHTTPRequestHandler):
                                     analysisContent.appendChild(item);
                                 }
                             });
+                            
+                            // Add print button
+                            const printButton = document.createElement('button');
+                            printButton.className = 'print-button';
+                            printButton.innerHTML = `
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/>
+                                    <path d="M6 14h12v8H6z"/>
+                                </svg>
+                                Print Analysis
+                            `;
+                            printButton.onclick = () => window.print();
+                            analysisContent.appendChild(printButton);
+                            
+                            // Add AI analysis section
+                            const aiSection = document.createElement('div');
+                            aiSection.className = 'ai-analysis';
+                            aiSection.innerHTML = `
+                                <div class="ai-header">
+                                    <h2 class="ai-title">AI Threat Analysis</h2>
+                                </div>
+                                <div class="ai-content" id="aiContent">
+                                    <div class="ai-loading">
+                                        <div class="loading-spinner"></div>
+                                        Analyzing threats...
+                                    </div>
+                                </div>
+                            `;
+                            analysisContent.appendChild(aiSection);
+                            
+                            // Call AI analysis
+                            analyzeThreats(data.analysis);
                         }
                         
                         // Show the analysis card
@@ -675,10 +803,43 @@ class Handler(BaseHTTPRequestHandler):
                     }
                     
                     function formatValue(value) {
+                        if (typeof value === 'boolean') {
+                            return value ? 'True' : 'False';
+                        }
                         if (typeof value === 'object') {
                             return JSON.stringify(value, null, 2);
                         }
                         return value;
+                    }
+                    
+                    async function analyzeThreats(analysis) {
+                        const aiContent = document.getElementById('aiContent');
+                        try {
+                            // Prepare analysis data for AI
+                            const analysisText = JSON.stringify(analysis, null, 2);
+                            
+                            // Call Gemini API
+                            const response = await fetch('/api/analyze', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                },
+                                body: JSON.stringify({
+                                    analysis: analysisText
+                                })
+                            });
+                            
+                            const result = await response.json();
+                            aiContent.innerHTML = `
+                                <div style="white-space: pre-wrap;">${result.analysis}</div>
+                            `;
+                        } catch (error) {
+                            aiContent.innerHTML = `
+                                <div style="color: var(--error-color);">
+                                    Error analyzing threats: ${error.message}
+                                </div>
+                            `;
+                        }
                     }
                 </script>
             </body>
