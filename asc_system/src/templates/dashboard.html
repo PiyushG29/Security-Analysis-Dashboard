@@ -11,21 +11,21 @@
 <body>
     <div class="container">
         <header>
-            <h1>Security Analysis Dashboard</h1>
+    <h1>Security Analysis Dashboard</h1>
             <p class="subtitle">Upload and analyze network traffic data</p>
         </header>
 
         <div class="upload-section">
-            <form action="/upload" method="post" enctype="multipart/form-data">
+    <form action="/upload" method="post" enctype="multipart/form-data">
                 <div class="file-upload">
-                    <input type="file" id="file" name="file" required>
+        <input type="file" id="file" name="file" required>
                     <label for="file">
                         <span class="upload-icon">📁</span>
                         <span class="upload-text">Choose a file or drag it here</span>
                     </label>
                 </div>
                 <button type="submit" id="submit-btn">Analyze</button>
-            </form>
+    </form>
         </div>
 
         <div id="loading" class="loading-container" style="display: none;">
