@@ -802,7 +802,7 @@ class Handler(BaseHTTPRequestHandler):
                         // Add analysis items
                         if (data.analysis) {
                             // Store the analysis for chat context
-                            window.lastAnalysis = data.analysis;
+                            window.lastAnalysis = JSON.stringify(data.analysis, null, 2);
                             
                             // Display protocol analysis if available
                             if (data.analysis.protocol_analysis) {
@@ -942,12 +942,21 @@ class Handler(BaseHTTPRequestHandler):
                                     <div class="chat-title">Discuss Analysis with AI</div>
                                     <button class="chat-close" onclick="closeChat()">&times;</button>
                                 </div>
-                                <div class="chat-messages" id="chatMessages"></div>
+                                <div class="chat-messages" id="chatMessages">
+                                    <div class="chat-message ai-message">
+                                        Hello! I'm your AI assistant. Ask me any questions about the security analysis, and I'll help you understand the findings and implications.
+                                    </div>
+                                </div>
                                 <div class="chat-input-container">
                                     <input type="text" class="chat-input" id="chatInput" 
                                            placeholder="Ask a question about the analysis..."
                                            onkeypress="if(event.key === 'Enter') sendMessage()">
-                                    <button class="chat-send" onclick="sendMessage()">Send</button>
+                                    <button class="chat-send" onclick="sendMessage()">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
+                                        </svg>
+                                        Send
+                                    </button>
                                 </div>
                             </div>
                         `;
@@ -983,6 +992,21 @@ class Handler(BaseHTTPRequestHandler):
                         userMessageDiv.className = 'chat-message user-message';
                         userMessageDiv.textContent = message;
                         chatMessages.appendChild(userMessageDiv);
+
+                        // Add loading message
+                        const loadingDiv = document.createElement('div');
+                        loadingDiv.className = 'chat-message ai-message loading';
+                        loadingDiv.innerHTML = `
+                            <div class="loading-dots">
+                                <span></span>
+                                <span></span>
+                                <span></span>
+                            </div>
+                        `;
+                        chatMessages.appendChild(loadingDiv);
+                        
+                        // Scroll to bottom
+                        chatMessages.scrollTop = chatMessages.scrollHeight;
                         
                         try {
                             // Send message to API
@@ -993,29 +1017,99 @@ class Handler(BaseHTTPRequestHandler):
                                 },
                                 body: JSON.stringify({
                                     message: message,
-                                    context: window.lastAnalysis
+                                    context: window.lastAnalysis || ''
                                 })
                             });
+                            
+                            // Remove loading message
+                            loadingDiv.remove();
                             
                             const data = await response.json();
                             
                             // Add AI response to chat
                             const aiMessageDiv = document.createElement('div');
                             aiMessageDiv.className = 'chat-message ai-message';
-                            aiMessageDiv.textContent = data.error ? data.response : data.response;
+                            
+                            if (data.error) {
+                                aiMessageDiv.innerHTML = `
+                                    <div class="error-message">
+                                        ${data.response}
+                                    </div>
+                                `;
+                            } else {
+                                aiMessageDiv.innerHTML = `
+                                    <div class="ai-response">
+                                        ${data.response.replace(/\n/g, '<br>')}
+                                    </div>
+                                `;
+                            }
+                            
                             chatMessages.appendChild(aiMessageDiv);
                             
                             // Scroll to bottom
                             chatMessages.scrollTop = chatMessages.scrollHeight;
                             
                         } catch (error) {
+                            // Remove loading message
+                            loadingDiv.remove();
+                            
                             console.error('Error sending message:', error);
                             const errorDiv = document.createElement('div');
                             errorDiv.className = 'chat-message ai-message error';
-                            errorDiv.textContent = 'Error sending message. Please try again.';
+                            errorDiv.innerHTML = `
+                                <div class="error-message">
+                                    Error sending message. Please try again.
+                                </div>
+                            `;
                             chatMessages.appendChild(errorDiv);
                         }
                     }
+
+                    // Add these styles
+                    const styles = `
+                        .loading-dots {
+                            display: flex;
+                            gap: 4px;
+                            padding: 10px;
+                        }
+                        
+                        .loading-dots span {
+                            width: 8px;
+                            height: 8px;
+                            border-radius: 50%;
+                            background: var(--primary-color);
+                            animation: bounce 1.4s infinite ease-in-out both;
+                        }
+                        
+                        .loading-dots span:nth-child(1) { animation-delay: -0.32s; }
+                        .loading-dots span:nth-child(2) { animation-delay: -0.16s; }
+                        
+                        @keyframes bounce {
+                            0%, 80%, 100% { transform: scale(0); }
+                            40% { transform: scale(1); }
+                        }
+                        
+                        .error-message {
+                            color: var(--error-color);
+                            padding: 8px;
+                            border-radius: 4px;
+                            background: rgba(255, 0, 0, 0.1);
+                        }
+                        
+                        .ai-response {
+                            white-space: pre-wrap;
+                            line-height: 1.5;
+                        }
+                        
+                        .chat-send svg {
+                            margin-right: 6px;
+                        }
+                    `;
+                    
+                    // Add styles to document
+                    const styleSheet = document.createElement("style");
+                    styleSheet.textContent = styles;
+                    document.head.appendChild(styleSheet);
                 </script>
             </body>
             </html>
