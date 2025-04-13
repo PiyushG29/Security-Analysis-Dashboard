@@ -24,8 +24,10 @@ class Handler(BaseHTTPRequestHandler):
             
             html_content = """
             <!DOCTYPE html>
-            <html>
+            <html lang="en">
             <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
                 <title>Security Analysis Dashboard</title>
                 <style>
                     @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
@@ -109,113 +111,72 @@ class Handler(BaseHTTPRequestHandler):
                     }
                     
                     .upload-section {
-                        display: flex;
-                        flex-direction: column;
-                        gap: 30px;
-                        align-items: center;
-                        margin-bottom: 40px;
-                        position: relative;
+                        margin: 20px auto;
+                        max-width: 600px;
+                        padding: 20px;
+                        background: white;
+                        border-radius: 12px;
+                        box-shadow: var(--card-shadow);
                     }
                     
                     .file-input-container {
-                        width: 100%;
-                        max-width: 500px;
-                        position: relative;
-                        transition: transform 0.3s ease;
+                        display: flex;
+                        gap: 10px;
+                        margin-bottom: 20px;
                     }
                     
-                    .file-input-container:hover {
-                        transform: translateY(-5px);
+                    .file-input-wrapper {
+                        flex-grow: 1;
+                        position: relative;
                     }
                     
                     .file-input {
+                        position: absolute;
                         width: 100%;
-                        padding: 30px;
-                        border: 3px dashed #ccc;
-                        border-radius: 15px;
+                        height: 100%;
+                        opacity: 0;
+                        cursor: pointer;
+                    }
+                    
+                    .file-label {
+                        display: block;
+                        padding: 10px 15px;
+                        background: var(--secondary-bg);
+                        border: 2px dashed var(--border-color);
+                        border-radius: 8px;
                         text-align: center;
                         cursor: pointer;
                         transition: all 0.3s ease;
-                        background-color: rgba(250, 250, 250, 0.8);
-                        font-size: 1.1em;
-                        position: relative;
-                        overflow: hidden;
                     }
                     
-                    .file-input::before {
-                        content: '';
-                        position: absolute;
-                        top: 0;
-                        left: -100%;
-                        width: 100%;
-                        height: 100%;
-                        background: linear-gradient(
-                            90deg,
-                            transparent,
-                            rgba(255, 255, 255, 0.4),
-                            transparent
-                        );
-                        transition: 0.5s;
-                    }
-                    
-                    .file-input:hover::before {
-                        left: 100%;
-                    }
-                    
-                    .file-input:hover {
+                    .file-label:hover {
                         border-color: var(--primary-color);
-                        background-color: rgba(240, 240, 240, 0.9);
-                        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+                        background: var(--hover-bg);
                     }
                     
-                    .file-input.dragover {
-                        border-color: var(--primary-color);
-                        background-color: rgba(232, 245, 233, 0.9);
-                        transform: scale(1.02);
-                    }
-                    
-                    .submit-btn {
+                    .upload-button {
+                        padding: 10px 20px;
                         background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
                         color: white;
-                        padding: 18px 35px;
                         border: none;
-                        border-radius: 12px;
+                        border-radius: 8px;
                         cursor: pointer;
-                        font-size: 1.2em;
-                        font-weight: 600;
+                        font-weight: 500;
                         transition: all 0.3s ease;
-                        box-shadow: var(--card-shadow);
-                        position: relative;
-                        overflow: hidden;
+                        display: flex;
+                        align-items: center;
+                        gap: 8px;
                     }
                     
-                    .submit-btn::before {
-                        content: '';
-                        position: absolute;
-                        top: 0;
-                        left: -100%;
-                        width: 100%;
-                        height: 100%;
-                        background: linear-gradient(
-                            90deg,
-                            transparent,
-                            rgba(255, 255, 255, 0.4),
-                            transparent
-                        );
-                        transition: 0.5s;
-                    }
-                    
-                    .submit-btn:hover::before {
-                        left: 100%;
-                    }
-                    
-                    .submit-btn:hover {
-                        transform: translateY(-3px);
+                    .upload-button:hover {
+                        transform: translateY(-2px);
                         box-shadow: var(--hover-shadow);
                     }
                     
-                    .submit-btn:active {
-                        transform: translateY(1px);
+                    .upload-button:disabled {
+                        opacity: 0.7;
+                        cursor: not-allowed;
+                        transform: none;
                     }
                     
                     .loading {
@@ -690,95 +651,157 @@ class Handler(BaseHTTPRequestHandler):
             </head>
             <body>
                 <div class="container">
-                    <h1>Security Analysis Dashboard</h1>
-                    <div class="upload-section">
-                        <div class="file-input-container">
-                            <input type="file" name="file" class="file-input" id="fileInput" required>
-                        </div>
-                        <button type="button" class="submit-btn" id="uploadBtn">Upload & Analyze</button>
-                    </div>
+                    <header>
+                        <h1>Security Analysis Dashboard</h1>
+                    </header>
                     
-                    <div class="loading" id="loading">
-                        <div class="loading-spinner"></div>
-                        <p>Analyzing file...</p>
-                    </div>
-                    
-                    <div class="error-message" id="errorMessage"></div>
-                    <div class="success-message" id="successMessage"></div>
-                    
-                    <div class="analysis-card" id="analysisCard">
-                        <div class="analysis-header">
-                            <h2 class="analysis-title">Analysis Results</h2>
-                            <span class="analysis-timestamp" id="analysisTimestamp"></span>
-                        </div>
-                        <div class="analysis-content" id="analysisContent">
-                            <!-- Analysis results will be populated here -->
-                        </div>
-                    </div>
+                    <main>
+                        <section class="upload-section">
+                            <div class="file-input-container">
+                                <div class="file-input-wrapper">
+                                    <input type="file" id="fileInput" class="file-input" accept=".pcap,.pcapng">
+                                    <label for="fileInput" id="fileLabel" class="file-label">
+                                        Choose a PCAP file or drag it here
+                                    </label>
+                                </div>
+                                <button id="uploadButton" class="upload-button">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                        <polyline points="17 8 12 3 7 8"/>
+                                        <line x1="12" y1="3" x2="12" y2="15"/>
+                                    </svg>
+                                    Upload & Analyze
+                                </button>
+                            </div>
+                        </section>
+                        
+                        <section id="analysisCard" class="analysis-card">
+                            <div class="analysis-header">
+                                <h2>Analysis Results</h2>
+                                <span id="analysisTimestamp"></span>
+                            </div>
+                            <div id="analysisContent" class="analysis-content">
+                                <!-- Analysis results will be inserted here -->
+                            </div>
+                        </section>
+                    </main>
                 </div>
                 
                 <script>
-                    const fileInput = document.getElementById('fileInput');
-                    const uploadBtn = document.getElementById('uploadBtn');
+                    document.addEventListener('DOMContentLoaded', function() {
+                        const fileInput = document.getElementById('fileInput');
+                        const fileLabel = document.getElementById('fileLabel');
+                        const uploadButton = document.getElementById('uploadButton');
+                        
+                        // File input change handler
+                        fileInput.addEventListener('change', function(e) {
+                            const fileName = e.target.files[0]?.name;
+                            fileLabel.textContent = fileName || 'Choose a PCAP file or drag it here';
+                        });
+                        
+                        // Drag and drop handlers
+                        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                            fileLabel.addEventListener(eventName, preventDefaults, false);
+                            document.body.addEventListener(eventName, preventDefaults, false);
+                        });
+                        
+                        ['dragenter', 'dragover'].forEach(eventName => {
+                            fileLabel.addEventListener(eventName, highlight, false);
+                        });
+                        
+                        ['dragleave', 'drop'].forEach(eventName => {
+                            fileLabel.addEventListener(eventName, unhighlight, false);
+                        });
+                        
+                        fileLabel.addEventListener('drop', handleDrop, false);
+                        
+                        // Upload button click handler
+                        uploadButton.addEventListener('click', uploadAndAnalyze);
+                        
+                        function preventDefaults(e) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                        }
+                        
+                        function highlight(e) {
+                            fileLabel.classList.add('dragover');
+                        }
+                        
+                        function unhighlight(e) {
+                            fileLabel.classList.remove('dragover');
+                        }
+                        
+                        function handleDrop(e) {
+                            const dt = e.dataTransfer;
+                            const files = dt.files;
+                            fileInput.files = files;
+                            
+                            const fileName = files[0]?.name;
+                            fileLabel.textContent = fileName || 'Choose a PCAP file or drag it here';
+                        }
+                        
+                        async function uploadAndAnalyze() {
+                            const file = fileInput.files[0];
+                            
+                            if (!file) {
+                                showError('Please select a file first');
+                                return;
+                            }
+                            
+                            // Show loading state
+                            const originalText = uploadButton.innerHTML;
+                            uploadButton.disabled = true;
+                            uploadButton.innerHTML = `
+                                <div class="loading-spinner"></div>
+                                Analyzing...
+                            `;
+                            
+                            try {
+                                const formData = new FormData();
+                                formData.append('file', file);
+                                
+                                const response = await fetch('/api/upload', {
+                                    method: 'POST',
+                                    body: formData
+                                });
+                                
+                                if (!response.ok) {
+                                    throw new Error('Upload failed');
+                                }
+                                
+                                const data = await response.json();
+                                
+                                if (data.error) {
+                                    throw new Error(data.error);
+                                }
+                                
+                                // Display the analysis results
+                                displayAnalysis(data);
+                                
+                                // Clear file input
+                                fileInput.value = '';
+                                fileLabel.textContent = 'Choose a PCAP file or drag it here';
+                                
+                                // Show success message
+                                showSuccess('Analysis completed successfully');
+                                
+                            } catch (error) {
+                                console.error('Error:', error);
+                                showError(error.message || 'An error occurred during analysis');
+                            } finally {
+                                // Reset button state
+                                uploadButton.disabled = false;
+                                uploadButton.innerHTML = originalText;
+                            }
+                        }
+                    });
+                    
                     const loading = document.getElementById('loading');
                     const errorMessage = document.getElementById('errorMessage');
                     const successMessage = document.getElementById('successMessage');
                     const analysisCard = document.getElementById('analysisCard');
                     const analysisContent = document.getElementById('analysisContent');
                     const analysisTimestamp = document.getElementById('analysisTimestamp');
-                    
-                    // Drag and drop functionality
-                    fileInput.addEventListener('dragover', (e) => {
-                        e.preventDefault();
-                        fileInput.classList.add('dragover');
-                    });
-                    
-                    fileInput.addEventListener('dragleave', () => {
-                        fileInput.classList.remove('dragover');
-                    });
-                    
-                    fileInput.addEventListener('drop', (e) => {
-                        e.preventDefault();
-                        fileInput.classList.remove('dragover');
-                        fileInput.files = e.dataTransfer.files;
-                    });
-                    
-                    uploadBtn.addEventListener('click', async () => {
-                        const file = fileInput.files[0];
-                        if (!file) {
-                            showError('Please select a file first');
-                            return;
-                        }
-                        
-                        const formData = new FormData();
-                        formData.append('file', file);
-                        
-                        try {
-                            // Show loading state
-                            loading.style.display = 'block';
-                            errorMessage.style.display = 'none';
-                            successMessage.style.display = 'none';
-                            analysisCard.classList.remove('show');
-                            
-                            const response = await fetch('/upload', {
-                                method: 'POST',
-                                body: formData
-                            });
-                            
-                            const data = await response.json();
-                            
-                            if (response.ok) {
-                                showSuccess('File uploaded successfully!');
-                                displayAnalysis(data);
-                            } else {
-                                showError(data.error || 'Upload failed');
-                            }
-                        } catch (error) {
-                            showError('An error occurred during upload');
-                        } finally {
-                            loading.style.display = 'none';
-                        }
-                    });
                     
                     function showError(message) {
                         errorMessage.textContent = message;
