@@ -358,13 +358,16 @@ class Handler(BaseHTTPRequestHandler):
                     }
                     
                     .protocol-stats {
-                        display: grid;
-                        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                        display: flex;
+                        flex-direction: row;
                         gap: 20px;
                         margin-top: 20px;
+                        overflow-x: auto;
+                        padding: 10px;
                     }
                     
                     .protocol-stat {
+                        min-width: 200px;
                         padding: 20px;
                         border-radius: 12px;
                         color: white;
@@ -494,30 +497,66 @@ class Handler(BaseHTTPRequestHandler):
                         }
                     }
                     
-                    .print-button {
-                        background: linear-gradient(45deg, var(--primary-color), var(--accent-color));
+                    .ip-list {
+                        display: flex;
+                        flex-wrap: wrap;
+                        gap: 10px;
+                        margin-top: 10px;
+                    }
+                    
+                    .ip-item {
+                        background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
                         color: white;
-                        padding: 12px 25px;
-                        border: none;
-                        border-radius: 8px;
-                        cursor: pointer;
-                        font-size: 1em;
-                        font-weight: 500;
-                        transition: all 0.3s ease;
-                        margin-top: 20px;
+                        padding: 8px 15px;
+                        border-radius: 20px;
+                        font-size: 0.9em;
                         display: flex;
                         align-items: center;
                         gap: 8px;
+                        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+                        transition: transform 0.2s ease;
+                    }
+                    
+                    .ip-item:hover {
+                        transform: translateY(-2px);
+                        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+                    }
+                    
+                    .ip-count {
+                        background: rgba(255,255,255,0.2);
+                        padding: 2px 8px;
+                        border-radius: 10px;
+                        font-size: 0.8em;
+                    }
+                    
+                    .print-button {
+                        position: fixed;
+                        bottom: 20px;
+                        right: 20px;
+                        background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
+                        color: white;
+                        padding: 10px 20px;
+                        border: none;
+                        border-radius: 25px;
+                        cursor: pointer;
+                        font-size: 0.9em;
+                        font-weight: 500;
+                        transition: all 0.3s ease;
+                        box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+                        display: flex;
+                        align-items: center;
+                        gap: 8px;
+                        z-index: 1000;
                     }
                     
                     .print-button:hover {
                         transform: translateY(-2px);
-                        box-shadow: var(--hover-shadow);
+                        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
                     }
                     
                     .print-button svg {
-                        width: 20px;
-                        height: 20px;
+                        width: 16px;
+                        height: 16px;
                     }
                     
                     .ai-analysis {
@@ -710,30 +749,36 @@ class Handler(BaseHTTPRequestHandler):
                                                 </div>
                                             `).join('')}
                                         </div>
-                                        <div class="protocol-chart">
-                                            ${Object.entries(protocolStats).map(([protocol, count]) => `
-                                                <div class="chart-bar ${protocol.toLowerCase()}"
-                                                     style="height: ${(count / total) * 100}%"
-                                                     data-count="${count}">
-                                                </div>
-                                            `).join('')}
-                                        </div>
                                     </div>
                                 `;
                                 
                                 analysisContent.innerHTML += protocolHTML;
                             }
                             
-                            // Add IP analysis first
+                            // Add IP analysis with improved styling
                             if (data.analysis.top_source_ips || data.analysis.top_destination_ips) {
                                 const ipHTML = `
                                     <div class="analysis-item">
                                         <div class="analysis-item-title">Top Source IPs</div>
-                                        <div class="analysis-item-value">${formatValue(data.analysis.top_source_ips)}</div>
+                                        <div class="ip-list">
+                                            ${Object.entries(data.analysis.top_source_ips).map(([ip, count]) => `
+                                                <div class="ip-item">
+                                                    <span>${ip}</span>
+                                                    <span class="ip-count">${count}</span>
+                                                </div>
+                                            `).join('')}
+                                        </div>
                                     </div>
                                     <div class="analysis-item">
                                         <div class="analysis-item-title">Top Destination IPs</div>
-                                        <div class="analysis-item-value">${formatValue(data.analysis.top_destination_ips)}</div>
+                                        <div class="ip-list">
+                                            ${Object.entries(data.analysis.top_destination_ips).map(([ip, count]) => `
+                                                <div class="ip-item">
+                                                    <span>${ip}</span>
+                                                    <span class="ip-count">${count}</span>
+                                                </div>
+                                            `).join('')}
+                                        </div>
                                     </div>
                                 `;
                                 analysisContent.innerHTML += ipHTML;
@@ -760,10 +805,10 @@ class Handler(BaseHTTPRequestHandler):
                                     <path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/>
                                     <path d="M6 14h12v8H6z"/>
                                 </svg>
-                                Print Analysis
+                                Print
                             `;
                             printButton.onclick = () => window.print();
-                            analysisContent.appendChild(printButton);
+                            document.body.appendChild(printButton);
                             
                             // Add AI analysis section
                             const aiSection = document.createElement('div');
@@ -787,13 +832,6 @@ class Handler(BaseHTTPRequestHandler):
                         
                         // Show the analysis card
                         analysisCard.classList.add('show');
-                        
-                        // Animate chart bars
-                        setTimeout(() => {
-                            document.querySelectorAll('.chart-bar').forEach(bar => {
-                                bar.style.animation = `growBar 1s ease-out forwards`;
-                            });
-                        }, 100);
                     }
                     
                     function formatKey(key) {
@@ -829,10 +867,18 @@ class Handler(BaseHTTPRequestHandler):
                                 })
                             });
                             
+                            if (!response.ok) {
+                                throw new Error('Failed to analyze threats');
+                            }
+                            
                             const result = await response.json();
-                            aiContent.innerHTML = `
-                                <div style="white-space: pre-wrap;">${result.analysis}</div>
-                            `;
+                            if (result && result.analysis) {
+                                aiContent.innerHTML = `
+                                    <div style="white-space: pre-wrap;">${result.analysis}</div>
+                                `;
+                            } else {
+                                throw new Error('Invalid response from AI analysis');
+                            }
                         } catch (error) {
                             aiContent.innerHTML = `
                                 <div style="color: var(--error-color);">
