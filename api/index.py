@@ -602,13 +602,13 @@ class Handler(BaseHTTPRequestHandler):
                     .chat-messages {
                         flex-grow: 1;
                         overflow-y: auto;
-                        padding: 15px;
+                        padding: 20px;
                         display: flex;
                         flex-direction: column;
-                        gap: 8px;
-                        background: rgba(248, 249, 250, 0.8);
+                        gap: 12px;
+                        background: rgba(248, 249, 250, 0.95);
                         border-radius: 8px;
-                        margin: 10px 0;
+                        margin: 15px 0;
                     }
                     
                     .chat-message {
@@ -616,43 +616,39 @@ class Handler(BaseHTTPRequestHandler):
                         border-radius: 12px;
                         max-width: 80%;
                         margin: 8px 0;
-                        line-height: 1.4;
+                        line-height: 1.5;
+                        font-size: 0.95em;
                     }
                     
-                    .chat-message pre {
-                        white-space: pre-wrap;
-                        word-wrap: break-word;
-                        margin: 0;
-                        font-family: inherit;
+                    .user-message {
+                        background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
+                        color: white;
+                        align-self: flex-end;
+                        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+                    }
+                    
+                    .ai-message {
+                        background: white;
+                        color: var(--text-color);
+                        align-self: flex-start;
+                        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+                        border: 1px solid rgba(0,0,0,0.1);
                     }
                     
                     .chat-message.loading {
+                        background: rgba(var(--primary-color-rgb), 0.1);
+                        border: none;
+                        color: var(--text-color);
                         display: flex;
                         align-items: center;
                         gap: 10px;
-                        background: rgba(var(--primary-color-rgb), 0.1);
-                        color: var(--text-color);
-                    }
-                    
-                    .loading-spinner {
-                        width: 20px;
-                        height: 20px;
-                        border: 2px solid transparent;
-                        border-top-color: var(--primary-color);
-                        border-radius: 50%;
-                        animation: spin 1s linear infinite;
-                    }
-                    
-                    @keyframes spin {
-                        to {
-                            transform: rotate(360deg);
-                        }
+                        font-style: italic;
                     }
                     
                     .chat-message.error {
-                        background: rgba(255, 0, 0, 0.1);
+                        background: rgba(255, 0, 0, 0.05);
                         color: #ff3333;
-                        border: 1px solid rgba(255, 0, 0, 0.2);
+                        border: 1px solid rgba(255, 0, 0, 0.1);
                     }
                     
                     .chat-input-container {
@@ -930,9 +926,6 @@ class Handler(BaseHTTPRequestHandler):
                                         Discuss Analysis
                                     </button>
                                 </div>
-                                <div class="ai-content" id="aiContent">
-                                    ${typeof data.analysis === 'string' ? data.analysis : JSON.stringify(data.analysis, null, 2)}
-                                </div>
                             `;
                             analysisContent.appendChild(aiSection);
                         }
@@ -1040,6 +1033,10 @@ class Handler(BaseHTTPRequestHandler):
                             // Remove loading message
                             loadingDiv.remove();
                             
+                            if (!response.ok) {
+                                throw new Error('Failed to get response from server');
+                            }
+                            
                             const data = await response.json();
                             
                             // Add AI response to chat
@@ -1050,7 +1047,8 @@ class Handler(BaseHTTPRequestHandler):
                                 aiMessageDiv.className += ' error';
                                 aiMessageDiv.textContent = data.response || 'Error: Unable to get response';
                             } else {
-                                aiMessageDiv.innerHTML = `<pre>${data.response}</pre>`;
+                                const formattedResponse = data.response.replace(/\n/g, '<br>');
+                                aiMessageDiv.innerHTML = formattedResponse;
                             }
                             
                             chatMessages.appendChild(aiMessageDiv);
@@ -1062,7 +1060,7 @@ class Handler(BaseHTTPRequestHandler):
                             console.error('Error sending message:', error);
                             const errorDiv = document.createElement('div');
                             errorDiv.className = 'chat-message ai-message error';
-                            errorDiv.textContent = 'Error sending message. Please try again.';
+                            errorDiv.textContent = error.message || 'Error sending message. Please try again.';
                             chatMessages.appendChild(errorDiv);
                         }
                     }
