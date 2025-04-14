@@ -7,6 +7,9 @@ import logging
 import json
 from io import BytesIO
 from datetime import datetime
+import re
+import dpkt
+import socket
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -42,40 +45,82 @@ def analyze_file(file_obj):
     Analyze the uploaded file and return structured analysis results
     """
     try:
-        # This is a simplified analysis - you can integrate with your actual analyzers
-        # from your asc_system/ directory as needed
+        # Read file content
+        content = file_obj.read()
+        content_str = content.decode('utf-8', errors='ignore')
         
-        # Mock analysis result for demonstration
+        # Basic file analysis
         analysis = {
-            "file_size_bytes": file_obj.getbuffer().nbytes,
-            "timestamp": str(datetime.now()),
-            "summary": {
-                "total_packets": 120,
-                "protocols": {
-                    "TCP": 85,
-                    "UDP": 25,
-                    "ICMP": 10,
-                    "Other": 0
-                },
-                "top_ips": [
-                    {"ip": "192.168.1.10", "count": 45},
-                    {"ip": "10.0.0.5", "count": 32},
-                    {"ip": "8.8.8.8", "count": 28}
-                ],
-                "potential_threats": [
-                    {
-                        "type": "Port Scan",
-                        "confidence": "Medium",
-                        "details": "Multiple connection attempts to different ports"
-                    }
-                ]
-            }
+            "file_size": len(content),
+            "line_count": len(content_str.splitlines()),
+            "word_count": len(content_str.split()),
+            "character_count": len(content_str),
+            "contains_ip": bool(re.search(r'\b(?:\d{1,3}\.){3}\d{1,3}\b', content_str)),
+            "contains_url": bool(re.search(r'https?://\S+', content_str)),
+            "contains_email": bool(re.search(r'[\w\.-]+@[\w\.-]+\.\w+', content_str)),
+            "timestamp": datetime.now().isoformat()
         }
         
+        # Try to analyze as PCAP file
+        try:
+            file_obj.seek(0)  # Reset file pointer
+            pcap = dpkt.pcap.Reader(file_obj)
+            
+            # Initialize counters
+            protocol_stats = {'tcp': 0, 'udp': 0, 'icmp': 0, 'other': 0}
+            source_ips = {}
+            dest_ips = {}
+            
+            # Analyze packets
+            for timestamp, buf in pcap:
+                try:
+                    eth = dpkt.ethernet.Ethernet(buf)
+                    if isinstance(eth.data, dpkt.ip.IP):
+                        ip = eth.data
+                        
+                        # Count IPs
+                        src_ip = socket.inet_ntoa(ip.src)
+                        dst_ip = socket.inet_ntoa(ip.dst)
+                        source_ips[src_ip] = source_ips.get(src_ip, 0) + 1
+                        dest_ips[dst_ip] = dest_ips.get(dst_ip, 0) + 1
+                        
+                        # Count protocols
+                        if isinstance(ip.data, dpkt.tcp.TCP):
+                            protocol_stats['tcp'] += 1
+                        elif isinstance(ip.data, dpkt.udp.UDP):
+                            protocol_stats['udp'] += 1
+                        elif isinstance(ip.data, dpkt.icmp.ICMP):
+                            protocol_stats['icmp'] += 1
+                        else:
+                            protocol_stats['other'] += 1
+                except:
+                    continue
+            
+            # Add PCAP analysis
+            analysis.update({
+                "protocol_analysis": protocol_stats,
+                "top_source_ips": dict(sorted(source_ips.items(), key=lambda x: x[1], reverse=True)[:10]),
+                "top_destination_ips": dict(sorted(dest_ips.items(), key=lambda x: x[1], reverse=True)[:10]),
+                "total_packets": sum(protocol_stats.values()),
+                "file_type": "PCAP"
+            })
+            
+        except Exception as e:
+            analysis.update({
+                "protocol_analysis": {"error": "Not a PCAP file or invalid format"},
+                "top_source_ips": {},
+                "top_destination_ips": {},
+                "file_type": "Unknown"
+            })
+        
         return analysis
+        
     except Exception as e:
-        logger.error(f"Error analyzing file: {str(e)}")
-        return {"error": str(e)}
+        return {
+            "error": str(e),
+            "file_size": len(content),
+            "timestamp": datetime.now().isoformat()
+        }
 
 @app.post("/api/analyze/upload")
 async def upload_file(file: UploadFile = File(...)):
