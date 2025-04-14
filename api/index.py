@@ -122,7 +122,7 @@ class Handler(BaseHTTPRequestHandler):
                             try {
                                 resultDiv.innerHTML = '<div class="loading">Analyzing file...</div>';
                                 
-                                const response = await fetch('/api/analyze/upload', {
+                                const response = await fetch('/upload', {
                                     method: 'POST',
                                     body: formData
                                 });
@@ -203,18 +203,6 @@ class Handler(BaseHTTPRequestHandler):
                                         <p>Contains Email Addresses: ${data.analysis.contains_email ? 'Yes' : 'No'}</p>
                                     </div>
                                 `;
-                                
-                                // AI Analysis
-                                if (data.analysis.ai_analysis) {
-                                    html += `
-                                        <div class="analysis-section">
-                                            <h3>AI Security Analysis</h3>
-                                            <div class="ai-analysis">
-                                                ${data.analysis.ai_analysis.split('\n').map(line => `<p>${line}</p>`).join('')}
-                                            </div>
-                                        </div>
-                                    `;
-                                }
                                 
                                 html += '</div>';
                                 resultDiv.innerHTML = html;

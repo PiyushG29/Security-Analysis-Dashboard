@@ -132,39 +132,6 @@ async def upload_file(file: UploadFile = File(...)):
         # Analyze the file
         analysis_result = analyze_file(file_obj)
         
-        # If Gemini API is available, get AI analysis
-        if GEMINI_API_KEY:
-            try:
-                model = genai.GenerativeModel('gemini-pro')
-                prompt = f"""Analyze this network traffic data and provide security insights:
-
-File Information:
-- Size: {analysis_result.get('file_size', 0)} bytes
-- Type: {analysis_result.get('file_type', 'Unknown')}
-- Contains IPs: {analysis_result.get('contains_ip', False)}
-- Contains URLs: {analysis_result.get('contains_url', False)}
-
-Protocol Analysis:
-{json.dumps(analysis_result.get('protocol_analysis', {}), indent=2)}
-
-Top Source IPs:
-{json.dumps(analysis_result.get('top_source_ips', {}), indent=2)}
-
-Top Destination IPs:
-{json.dumps(analysis_result.get('top_destination_ips', {}), indent=2)}
-
-Please provide:
-1. Security assessment
-2. Potential threats
-3. Recommendations
-"""
-                response = model.generate_content(prompt)
-                if response and response.text:
-                    analysis_result['ai_analysis'] = response.text.strip()
-            except Exception as e:
-                logger.error(f"Error getting AI analysis: {str(e)}")
-                analysis_result['ai_analysis'] = "AI analysis unavailable"
-        
         return JSONResponse({
             "message": "File uploaded successfully",
             "status": "success",
