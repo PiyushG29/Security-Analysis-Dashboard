@@ -11,18 +11,18 @@ import re
 import dpkt
 import socket
 from dotenv import load_dotenv
+import requests
 
 # Load environment variables
 load_dotenv()
 
 # Get API key from environment
-api_key = os.getenv('GEMINI_API_KEY')
+api_key = os.getenv('HUGGINGFACE_API_KEY')
 if not api_key:
-    raise ValueError("GEMINI_API_KEY environment variable is not set")
+    raise ValueError("HUGGINGFACE_API_KEY environment variable is not set")
 
-# Configure Gemini API
-genai.configure(api_key=api_key)
-model = genai.GenerativeModel('gemini-pro')
+API_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2"
+headers = {"Authorization": f"Bearer {api_key}"}
 
 app = FastAPI()
 
@@ -140,11 +140,45 @@ async def upload_file(file: UploadFile = File(...)):
             "error": str(e)
         }, status_code=500)
 
+def query(payload):
+    response = requests.post(API_URL, headers=headers, json=payload)
+    return response.json()
+
 @app.post("/chat")
 async def chat_with_ai(request: ChatRequest):
     try:
-        response = model.generate_content(request.message)
-        return {"response": response.text}
+        # Format the prompt for the model
+        prompt = f"""You are a cybersecurity expert analyzing network traffic data. 
+        Please provide a detailed response to the following question:
+        
+        {request.message}
+        
+        Please:
+        1. Address the question directly
+        2. Provide technical explanations
+        3. Include security implications
+        4. Give actionable recommendations if applicable
+        """
+        
+        payload = {
+            "inputs": prompt,
+            "parameters": {
+                "max_new_tokens": 500,
+                "temperature": 0.7,
+                "top_p": 0.95,
+                "do_sample": True
+            }
+        }
+        
+        response = query(payload)
+        
+        if isinstance(response, list) and len(response) > 0:
+            return {"response": response[0]['generated_text']}
+        elif isinstance(response, dict) and 'error' in response:
+            raise HTTPException(status_code=500, detail=response['error'])
+        else:
+            raise HTTPException(status_code=500, detail="Unexpected response format from AI model")
+            
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
