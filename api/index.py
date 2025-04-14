@@ -204,6 +204,18 @@ class Handler(BaseHTTPRequestHandler):
                                     </div>
                                 `;
                                 
+                                // AI Analysis
+                                if (data.analysis.ai_analysis) {
+                                    html += `
+                                        <div class="analysis-section">
+                                            <h3>AI Security Analysis</h3>
+                                            <div class="ai-analysis">
+                                                ${data.analysis.ai_analysis.split('\n').map(line => `<p>${line}</p>`).join('')}
+                                            </div>
+                                        </div>
+                                    `;
+                                }
+                                
                                 html += '</div>';
                                 resultDiv.innerHTML = html;
                                 
