@@ -304,7 +304,6 @@ class Handler(BaseHTTPRequestHandler):
                         });
                         
                         // Add AI discussion functionality
-                        const AI_API_KEY = 'AIzaSyCej3h_Wd_LZGyscfm88fZqH9FF-cn6HTU';
                         const popup = document.querySelector('.ai-popup');
                         const overlay = document.querySelector('.ai-popup-overlay');
                         const closeBtn = document.querySelector('.close-popup');
@@ -322,25 +321,25 @@ class Handler(BaseHTTPRequestHandler):
                         
                         async function sendToGemini(message) {
                             try {
-                                const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=' + AI_API_KEY, {
+                                const response = await fetch('/api/analyze/chat', {
                                     method: 'POST',
                                     headers: {
                                         'Content-Type': 'application/json',
                                     },
                                     body: JSON.stringify({
-                                        contents: [{
-                                            parts: [{
-                                                text: message
-                                            }]
-                                        }]
+                                        message: message
                                     })
                                 });
                                 
+                                if (!response.ok) {
+                                    throw new Error(`HTTP error! status: ${response.status}`);
+                                }
+                                
                                 const data = await response.json();
-                                return data.candidates[0].content.parts[0].text;
+                                return data.response;
                             } catch (error) {
                                 console.error('Error:', error);
-                                return 'Sorry, I encountered an error while processing your request.';
+                                return 'Sorry, I encountered an error while processing your request. Please try again.';
                             }
                         }
                         
