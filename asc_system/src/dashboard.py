@@ -52,13 +52,27 @@ def get_system_status():
     )
 
 # Serve static files
-app.mount("/static", StaticFiles(directory="src/static"), name="static")
+import os
+import pathlib
+
+# Get the absolute path to the static directory
+base_dir = pathlib.Path(__file__).parent.absolute()
+static_dir = os.path.join(base_dir, "static")
+templates_dir = os.path.join(base_dir, "templates")
+
+# Mount static directory
+app.mount("/static", StaticFiles(directory=static_dir), name="static")
+
+# Setup templates
+templates = Jinja2Templates(directory=templates_dir)
 
 @app.get("/dashboard", response_class=HTMLResponse)
-def serve_dashboard():
+def serve_dashboard(request: Request):
     """Serve the interactive dashboard."""
-    with open("src/static/dashboard.html", "r") as file:
-        return HTMLResponse(content=file.read())
+    try:
+        return templates.TemplateResponse("dashboard.html", {"request": request})
+    except Exception as e:
+        return HTMLResponse(content=f"Error loading dashboard: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn
