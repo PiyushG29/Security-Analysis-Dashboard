@@ -789,7 +789,7 @@ class Handler(BaseHTTPRequestHandler):
                             successMessage.style.display = 'none';
                             analysisCard.classList.remove('show');
                             
-                            const response = await fetch('/api/upload', {
+                            const response = await fetch('/api/analyze/upload', {
                                 method: 'POST',
                                 body: formData
                             });
