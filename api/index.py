@@ -93,6 +93,82 @@ class Handler(BaseHTTPRequestHandler):
                             background-color: #ffebee;
                             border-radius: 4px;
                         }
+                        .ai-popup {
+                            display: none;
+                            position: fixed;
+                            top: 50%;
+                            left: 50%;
+                            transform: translate(-50%, -50%);
+                            background: white;
+                            padding: 20px;
+                            border-radius: 8px;
+                            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                            z-index: 1000;
+                            width: 80%;
+                            max-width: 600px;
+                        }
+                        .ai-popup.active {
+                            display: block;
+                        }
+                        .ai-popup-overlay {
+                            display: none;
+                            position: fixed;
+                            top: 0;
+                            left: 0;
+                            right: 0;
+                            bottom: 0;
+                            background: rgba(0,0,0,0.5);
+                            z-index: 999;
+                        }
+                        .ai-popup-overlay.active {
+                            display: block;
+                        }
+                        .ai-chat-container {
+                            max-height: 400px;
+                            overflow-y: auto;
+                            margin-bottom: 20px;
+                        }
+                        .ai-message {
+                            margin: 10px 0;
+                            padding: 10px;
+                            border-radius: 4px;
+                        }
+                        .user-message {
+                            background: #e3f2fd;
+                            margin-left: 20%;
+                        }
+                        .ai-response {
+                            background: #f5f5f5;
+                            margin-right: 20%;
+                        }
+                        .close-popup {
+                            position: absolute;
+                            top: 10px;
+                            right: 10px;
+                            cursor: pointer;
+                            font-size: 20px;
+                        }
+                        .ai-input-container {
+                            display: flex;
+                            gap: 10px;
+                        }
+                        .ai-input {
+                            flex: 1;
+                            padding: 8px;
+                            border: 1px solid #ddd;
+                            border-radius: 4px;
+                        }
+                        .ai-send {
+                            padding: 8px 16px;
+                            background: #4CAF50;
+                            color: white;
+                            border: none;
+                            border-radius: 4px;
+                            cursor: pointer;
+                        }
+                        .ai-send:hover {
+                            background: #45a049;
+                        }
                     </style>
                 </head>
                 <body>
@@ -104,6 +180,18 @@ class Handler(BaseHTTPRequestHandler):
                         <button class="upload-button" id="uploadButton">Analyze PCAP</button>
                     </div>
                     <div id="result" class="result"></div>
+                    
+                    <!-- AI Popup -->
+                    <div class="ai-popup-overlay"></div>
+                    <div class="ai-popup">
+                        <span class="close-popup">&times;</span>
+                        <h2>Discuss with AI</h2>
+                        <div class="ai-chat-container"></div>
+                        <div class="ai-input-container">
+                            <input type="text" class="ai-input" placeholder="Ask about the analysis...">
+                            <button class="ai-send">Send</button>
+                        </div>
+                    </div>
                     
                     <script>
                         document.getElementById('uploadButton').addEventListener('click', async function() {
@@ -207,10 +295,94 @@ class Handler(BaseHTTPRequestHandler):
                                 html += '</div>';
                                 resultDiv.innerHTML = html;
                                 
+                                // Add AI button to results
+                                addAIButton();
+                                
                             } catch (error) {
                                 resultDiv.innerHTML = `<div class="error">Error uploading file: ${error.message}</div>`;
                             }
                         });
+                        
+                        // Add AI discussion functionality
+                        const AI_API_KEY = 'AIzaSyCej3h_Wd_LZGyscfm88fZqH9FF-cn6HTU';
+                        const popup = document.querySelector('.ai-popup');
+                        const overlay = document.querySelector('.ai-popup-overlay');
+                        const closeBtn = document.querySelector('.close-popup');
+                        const chatContainer = document.querySelector('.ai-chat-container');
+                        const aiInput = document.querySelector('.ai-input');
+                        const aiSend = document.querySelector('.ai-send');
+                        
+                        function togglePopup() {
+                            popup.classList.toggle('active');
+                            overlay.classList.toggle('active');
+                        }
+                        
+                        closeBtn.addEventListener('click', togglePopup);
+                        overlay.addEventListener('click', togglePopup);
+                        
+                        async function sendToGemini(message) {
+                            try {
+                                const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=' + AI_API_KEY, {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                    },
+                                    body: JSON.stringify({
+                                        contents: [{
+                                            parts: [{
+                                                text: message
+                                            }]
+                                        }]
+                                    })
+                                });
+                                
+                                const data = await response.json();
+                                return data.candidates[0].content.parts[0].text;
+                            } catch (error) {
+                                console.error('Error:', error);
+                                return 'Sorry, I encountered an error while processing your request.';
+                            }
+                        }
+                        
+                        function addMessage(message, isUser = true) {
+                            const messageDiv = document.createElement('div');
+                            messageDiv.className = `ai-message ${isUser ? 'user-message' : 'ai-response'}`;
+                            messageDiv.textContent = message;
+                            chatContainer.appendChild(messageDiv);
+                            chatContainer.scrollTop = chatContainer.scrollHeight;
+                        }
+                        
+                        aiSend.addEventListener('click', async () => {
+                            const message = aiInput.value.trim();
+                            if (message) {
+                                addMessage(message, true);
+                                aiInput.value = '';
+                                
+                                const analysisData = document.querySelector('.analysis-results').innerText;
+                                const prompt = `Based on this PCAP analysis: ${analysisData}\n\nUser question: ${message}`;
+                                
+                                const response = await sendToGemini(prompt);
+                                addMessage(response, false);
+                            }
+                        });
+                        
+                        aiInput.addEventListener('keypress', (e) => {
+                            if (e.key === 'Enter') {
+                                aiSend.click();
+                            }
+                        });
+                        
+                        // Add AI button to results
+                        function addAIButton() {
+                            const resultDiv = document.getElementById('result');
+                            const aiButton = document.createElement('button');
+                            aiButton.className = 'upload-button';
+                            aiButton.textContent = 'Discuss with AI';
+                            aiButton.style.marginTop = '20px';
+                            aiButton.addEventListener('click', togglePopup);
+                            resultDiv.appendChild(aiButton);
+                        }
+                        
                     </script>
                 </body>
                 </html>
