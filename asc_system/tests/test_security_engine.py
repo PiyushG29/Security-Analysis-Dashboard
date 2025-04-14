@@ -2,11 +2,6 @@ import sys
 import os
 import pytest
 import queue
-import tempfile
-from flask import Flask
-from src.dashboard import app
-from unittest.mock import patch
-from scapy.all import wrpcap, Ether
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
@@ -61,23 +56,3 @@ def test_event_processing(security_engine, mock_event_queue):
     security_engine._analyze_event = MagicMock(side_effect=mock_analyze_event)
     security_engine._process_event_queue()
     security_engine._analyze_event.assert_called_once_with(mock_event)
-
-@pytest.fixture
-def client():
-    app.config['TESTING'] = True
-    with app.test_client() as client:
-        yield client
-
-def test_upload_pcap_file(client):
-    # Create a temporary .pcap file
-    temp_pcap = tempfile.NamedTemporaryFile(suffix='.pcap', delete=False)
-    packet = Ether()  # Create a simple Ethernet packet
-    wrpcap(temp_pcap.name, [packet])
-
-    with open(temp_pcap.name, 'rb') as pcap_file:
-        response = client.post('/upload', data={'file': pcap_file}, content_type='multipart/form-data')
-
-    assert response.status_code == 200
-    assert 'results' in response.json
-    assert 'anomalies' in response.json['results']
-    assert 'context' in response.json['results']

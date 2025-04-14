@@ -805,6 +805,13 @@ class Handler(BaseHTTPRequestHandler):
                             } else {
                                 showSuccess('File uploaded successfully!');
                                 displayAnalysis(data);
+                                // Ensure the analysis card is shown with a slight delay to ensure DOM updates
+                                setTimeout(() => {
+                                    window.scrollTo({
+                                        top: analysisCard.offsetTop,
+                                        behavior: 'smooth'
+                                    });
+                                }, 100);
                             }
                         } catch (error) {
                             console.error('Upload error:', error);
