@@ -127,6 +127,10 @@ class Handler(BaseHTTPRequestHandler):
                                     body: formData
                                 });
                                 
+                                if (!response.ok) {
+                                    throw new Error(`HTTP error! status: ${response.status}`);
+                                }
+                                
                                 const data = await response.json();
                                 
                                 if (data.error) {
@@ -141,35 +145,35 @@ class Handler(BaseHTTPRequestHandler):
                                 html += `
                                     <div class="analysis-section">
                                         <h3>File Information</h3>
-                                        <p>File Size: ${(data.file_size / 1024).toFixed(2)} KB</p>
-                                        <p>File Type: ${data.file_type || 'Unknown'}</p>
-                                        <p>Analysis Time: ${new Date(data.timestamp).toLocaleString()}</p>
+                                        <p>File Size: ${(data.analysis.file_size / 1024).toFixed(2)} KB</p>
+                                        <p>File Type: ${data.analysis.file_type || 'Unknown'}</p>
+                                        <p>Analysis Time: ${new Date(data.analysis.timestamp).toLocaleString()}</p>
                                     </div>
                                 `;
                                 
                                 // Protocol analysis
-                                if (data.protocol_analysis) {
+                                if (data.analysis.protocol_analysis) {
                                     html += `
                                         <div class="analysis-section">
                                             <h3>Protocol Analysis</h3>
-                                            <p>Total Packets: ${data.total_packets || 0}</p>
+                                            <p>Total Packets: ${data.analysis.total_packets || 0}</p>
                                             <div class="protocol-stats">
-                                                <p>TCP: ${data.protocol_analysis.tcp || 0}</p>
-                                                <p>UDP: ${data.protocol_analysis.udp || 0}</p>
-                                                <p>ICMP: ${data.protocol_analysis.icmp || 0}</p>
-                                                <p>Other: ${data.protocol_analysis.other || 0}</p>
+                                                <p>TCP: ${data.analysis.protocol_analysis.tcp || 0}</p>
+                                                <p>UDP: ${data.analysis.protocol_analysis.udp || 0}</p>
+                                                <p>ICMP: ${data.analysis.protocol_analysis.icmp || 0}</p>
+                                                <p>Other: ${data.analysis.protocol_analysis.other || 0}</p>
                                             </div>
                                         </div>
                                     `;
                                 }
                                 
                                 // IP analysis
-                                if (data.top_source_ips && Object.keys(data.top_source_ips).length > 0) {
+                                if (data.analysis.top_source_ips && Object.keys(data.analysis.top_source_ips).length > 0) {
                                     html += `
                                         <div class="analysis-section">
                                             <h3>Top Source IPs</h3>
                                             <ul>
-                                                ${Object.entries(data.top_source_ips).map(([ip, count]) => 
+                                                ${Object.entries(data.analysis.top_source_ips).map(([ip, count]) => 
                                                     `<li>${ip}: ${count} packets</li>`
                                                 ).join('')}
                                             </ul>
@@ -177,12 +181,12 @@ class Handler(BaseHTTPRequestHandler):
                                     `;
                                 }
                                 
-                                if (data.top_destination_ips && Object.keys(data.top_destination_ips).length > 0) {
+                                if (data.analysis.top_destination_ips && Object.keys(data.analysis.top_destination_ips).length > 0) {
                                     html += `
                                         <div class="analysis-section">
                                             <h3>Top Destination IPs</h3>
                                             <ul>
-                                                ${Object.entries(data.top_destination_ips).map(([ip, count]) => 
+                                                ${Object.entries(data.analysis.top_destination_ips).map(([ip, count]) => 
                                                     `<li>${ip}: ${count} packets</li>`
                                                 ).join('')}
                                             </ul>
@@ -194,9 +198,9 @@ class Handler(BaseHTTPRequestHandler):
                                 html += `
                                     <div class="analysis-section">
                                         <h3>Additional Analysis</h3>
-                                        <p>Contains IP Addresses: ${data.contains_ip ? 'Yes' : 'No'}</p>
-                                        <p>Contains URLs: ${data.contains_url ? 'Yes' : 'No'}</p>
-                                        <p>Contains Email Addresses: ${data.contains_email ? 'Yes' : 'No'}</p>
+                                        <p>Contains IP Addresses: ${data.analysis.contains_ip ? 'Yes' : 'No'}</p>
+                                        <p>Contains URLs: ${data.analysis.contains_url ? 'Yes' : 'No'}</p>
+                                        <p>Contains Email Addresses: ${data.analysis.contains_email ? 'Yes' : 'No'}</p>
                                     </div>
                                 `;
                                 
