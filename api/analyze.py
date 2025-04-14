@@ -10,28 +10,25 @@ from datetime import datetime
 import re
 import dpkt
 import socket
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+
+# Get API key from environment
+api_key = os.getenv('GEMINI_API_KEY')
+if not api_key:
+    raise ValueError("GEMINI_API_KEY environment variable is not set")
+
+# Configure Gemini API
+genai.configure(api_key=api_key)
+model = genai.GenerativeModel('gemini-pro')
+
+app = FastAPI()
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-app = FastAPI()
-
-# Configure Gemini API
-GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
-if not GEMINI_API_KEY:
-    logger.error("GEMINI_API_KEY environment variable is not set")
-else:
-    logger.info("GEMINI_API_KEY is set")
-    try:
-        genai.configure(api_key=GEMINI_API_KEY)
-        # Test the API key by making a simple request
-        model = genai.GenerativeModel('gemini-pro')
-        test_response = model.generate_content("Test")
-        logger.info("Gemini API key verified successfully")
-    except Exception as e:
-        logger.error(f"Failed to configure Gemini API: {str(e)}")
-        GEMINI_API_KEY = None
 
 class AnalysisRequest(BaseModel):
     analysis: str
@@ -143,80 +140,13 @@ async def upload_file(file: UploadFile = File(...)):
             "error": str(e)
         }, status_code=500)
 
-@app.post("/api/chat")
-async def chat_with_ai(request: Request):
+@app.post("/chat")
+async def chat_with_ai(request: ChatRequest):
     try:
-        if not GEMINI_API_KEY:
-            return JSONResponse(
-                status_code=500,
-                content={
-                    "error": True,
-                    "response": "Chat is currently unavailable. Please check the API configuration."
-                }
-            )
-
-        body = await request.json()
-        if not body or 'message' not in body or 'context' not in body:
-            return JSONResponse(
-                status_code=400,
-                content={
-                    "error": True,
-                    "response": "Invalid request format. Expected 'message' and 'context' fields."
-                }
-            )
-
-        user_message = body['message']
-        analysis_context = body['context']
-
-        model = genai.GenerativeModel('gemini-pro')
-        prompt = f"""You are a cybersecurity expert analyzing network traffic data. Here is the context of the analysis:
-
-Analysis Context:
-{analysis_context}
-
-User Question: {user_message}
-
-Please provide a detailed response that:
-1. Directly addresses the user's question
-2. References specific data from the analysis when relevant
-3. Explains technical concepts in a clear way
-4. Provides actionable recommendations if applicable
-5. Highlights any security implications
-
-Format your response in a clear, structured manner."""
-
-        logger.info(f"Sending chat request to Gemini API")
-        response = model.generate_content(prompt)
-        
-        if not response or not response.text:
-            return JSONResponse(
-                status_code=500,
-                content={
-                    "error": True,
-                    "response": "No response generated. Please try again."
-                }
-            )
-
-        ai_response = response.text.strip()
-        logger.info("Successfully received response from Gemini API")
-        
-        return JSONResponse(
-            status_code=200,
-            content={
-                "error": False,
-                "response": ai_response
-            }
-        )
-
+        response = model.generate_content(request.message)
+        return {"response": response.text}
     except Exception as e:
-        logger.error(f"Error in chat endpoint: {str(e)}", exc_info=True)
-        return JSONResponse(
-            status_code=500,
-            content={
-                "error": True,
-                "response": "An unexpected error occurred while processing your message."
-            }
-        )
+        raise HTTPException(status_code=500, detail=str(e))
 
 # Add handler for Vercel
 @app.middleware("http")
