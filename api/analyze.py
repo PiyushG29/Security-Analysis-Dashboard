@@ -6,6 +6,7 @@ from pydantic import BaseModel
 import logging
 import json
 from io import BytesIO
+from datetime import datetime
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -36,7 +37,47 @@ class ChatRequest(BaseModel):
     message: str
     context: str
 
-@app.post("/api/upload")
+def analyze_file(file_obj):
+    """
+    Analyze the uploaded file and return structured analysis results
+    """
+    try:
+        # This is a simplified analysis - you can integrate with your actual analyzers
+        # from your asc_system/ directory as needed
+        
+        # Mock analysis result for demonstration
+        analysis = {
+            "file_size_bytes": file_obj.getbuffer().nbytes,
+            "timestamp": str(datetime.now()),
+            "summary": {
+                "total_packets": 120,
+                "protocols": {
+                    "TCP": 85,
+                    "UDP": 25,
+                    "ICMP": 10,
+                    "Other": 0
+                },
+                "top_ips": [
+                    {"ip": "192.168.1.10", "count": 45},
+                    {"ip": "10.0.0.5", "count": 32},
+                    {"ip": "8.8.8.8", "count": 28}
+                ],
+                "potential_threats": [
+                    {
+                        "type": "Port Scan",
+                        "confidence": "Medium",
+                        "details": "Multiple connection attempts to different ports"
+                    }
+                ]
+            }
+        }
+        
+        return analysis
+    except Exception as e:
+        logger.error(f"Error analyzing file: {str(e)}")
+        return {"error": str(e)}
+
+@app.post("/api/analyze/upload")
 async def upload_file(file: UploadFile = File(...)):
     try:
         logger.info(f"Received file upload: {file.filename}")
